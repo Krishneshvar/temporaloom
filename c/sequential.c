@@ -13,30 +13,21 @@ typedef struct {
     int adj[MAX_NODES][MAX_NODES];
 } Graph;
 
-void load_graph(Graph *g, int id) {
+void load_graph(Graph *g) {
     for(int i=0;i<MAX_NODES;i++)
         for(int j=0;j<MAX_NODES;j++)
             g->adj[i][j]=0;
 
-    if(id==1) {
-        g->num_nodes=4;
+    g->num_nodes=6;
 
-        g->adj[0][1]=1;
-        g->adj[0][2]=1;
-        g->adj[1][2]=1;
-        g->adj[2][0]=1;
-        g->adj[3][2]=1;
-    }
-    else if(id==2) {
-        g->num_nodes=5;
-
-        g->adj[0][1]=1;
-        g->adj[1][2]=1;
-        g->adj[2][3]=1;
-        g->adj[3][4]=1;
-        g->adj[4][0]=1;
-        g->adj[0][3]=1;
-    }
+    g->adj[0][1]=1;
+    g->adj[0][2]=1;
+    g->adj[1][2]=1;
+    g->adj[2][0]=1;
+    g->adj[2][3]=1;
+    g->adj[3][4]=1;
+    g->adj[4][5]=1;
+    g->adj[5][3]=1;
 }
 
 void pagerank(Graph *g) {
@@ -91,7 +82,7 @@ int main() {
 
     Graph g;
 
-    load_graph(&g,1);
+    load_graph(&g);
 
     clock_t start=clock();
 

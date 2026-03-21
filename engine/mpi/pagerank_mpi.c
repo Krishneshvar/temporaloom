@@ -4,6 +4,8 @@
 #include "../graph/graph_loader.h"
 #include "../pagerank/pagerank_core.h"
 
+#include <string.h>
+
 int main(int argc, char *argv[]) {
     MPI_Init(&argc, &argv);
 
@@ -12,9 +14,14 @@ int main(int argc, char *argv[]) {
     MPI_Comm_size(MPI_COMM_WORLD, &size);
 
     if (argc < 2) {
-        if (rank == 0) printf("Usage: mpirun -np <num_proc> %s <dataset_file>\n", argv[0]);
+        if (rank == 0) printf("Usage: mpirun -np <num_proc> %s <dataset_file> [-j]\n", argv[0]);
         MPI_Finalize();
         return 1;
+    }
+
+    int json_output = 0;
+    if (argc > 2 && strcmp(argv[2], "-j") == 0) {
+        json_output = 1;
     }
 
     // Every process loads the whole graph for now (simple partitioning)
@@ -66,12 +73,23 @@ int main(int argc, char *argv[]) {
     double end_time = MPI_Wtime();
 
     if (rank == 0) {
-        printf("\nMPI PageRank converged in %d iterations using %d processes.\n", iter, size);
-        printf("Final PageRank Sample:\n");
-        for (int i = 0; i < (n < 10 ? n : 10); i++) {
-            printf("Node %d: %.6f\n", i, ranks[i]);
+        if (json_output) {
+            printf("{\n");
+            printf("  \"mode\": \"mpi\",\n");
+            printf("  \"processes\": %d,\n", size);
+            printf("  \"nodes\": %d,\n", n);
+            printf("  \"edges\": %d,\n", g->num_edges);
+            printf("  \"iterations\": %d,\n", iter);
+            printf("  \"execution_time\": %.6f\n", end_time - start_time);
+            printf("}\n");
+        } else {
+            printf("\nMPI PageRank converged in %d iterations using %d processes.\n", iter, size);
+            printf("Final PageRank Sample:\n");
+            for (int i = 0; i < (n < 10 ? n : 10); i++) {
+                printf("Node %d: %.6f\n", i, ranks[i]);
+            }
+            printf("Execution time: %f seconds\n", end_time - start_time);
         }
-        printf("Execution time: %f seconds\n", end_time - start_time);
     }
 
     free(ranks);

@@ -4,10 +4,17 @@
 #include "../graph/graph_loader.h"
 #include "../pagerank/pagerank_core.h"
 
+#include <string.h>
+
 int main(int argc, char *argv[]) {
     if (argc < 2) {
-        printf("Usage: %s <dataset_file>\n", argv[0]);
+        printf("Usage: %s <dataset_file> [-j]\n", argv[0]);
         return 1;
+    }
+
+    int json_output = 0;
+    if (argc > 2 && strcmp(argv[2], "-j") == 0) {
+        json_output = 1;
     }
 
     Graph *g = load_graph_from_file(argv[1]);
@@ -37,12 +44,22 @@ int main(int argc, char *argv[]) {
     clock_t end = clock();
     double exec_time = (double)(end - start) / CLOCKS_PER_SEC;
 
-    printf("\nSequential PageRank converged in %d iterations.\n", iter);
-    printf("Final PageRank Sample:\n");
-    for (int i = 0; i < (n < 10 ? n : 10); i++) {
-        printf("Node %d: %.6f\n", i, ranks[i]);
+    if (json_output) {
+        printf("{\n");
+        printf("  \"mode\": \"sequential\",\n");
+        printf("  \"nodes\": %d,\n", n);
+        printf("  \"edges\": %d,\n", g->num_edges);
+        printf("  \"iterations\": %d,\n", iter);
+        printf("  \"execution_time\": %.6f\n", exec_time);
+        printf("}\n");
+    } else {
+        printf("\nSequential PageRank converged in %d iterations.\n", iter);
+        printf("Final PageRank Sample:\n");
+        for (int i = 0; i < (n < 10 ? n : 10); i++) {
+            printf("Node %d: %.6f\n", i, ranks[i]);
+        }
+        printf("Execution time: %f seconds\n", exec_time);
     }
-    printf("Execution time: %f seconds\n", exec_time);
 
     free(ranks);
     free(new_ranks);

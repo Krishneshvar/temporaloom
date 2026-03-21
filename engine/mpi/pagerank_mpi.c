@@ -20,8 +20,10 @@ int main(int argc, char *argv[]) {
     }
 
     int json_output = 0;
-    if (argc > 2 && strcmp(argv[2], "-j") == 0) {
-        json_output = 1;
+    int export_iter = 0;
+    for (int i = 2; i < argc; i++) {
+        if (strcmp(argv[i], "-j") == 0) json_output = 1;
+        if (strcmp(argv[i], "-e") == 0) export_iter = 1;
     }
 
     // Every process loads the whole graph for now (simple partitioning)
@@ -64,6 +66,20 @@ int main(int argc, char *argv[]) {
 
         // Update local PR vector using the global knowledge (every process now has the same info)
         double diff = apply_global_updates(ranks, new_ranks, n, total_dangling_sum, config);
+
+        if (export_iter && rank == 0) {
+            char filename[256];
+            snprintf(filename, sizeof(filename), "../results/iteration_%d.json", iter);
+            FILE *f = fopen(filename, "w");
+            if (f) {
+                fprintf(f, "{\n  \"iteration\": %d,\n  \"nodes\": [\n", iter);
+                for (int i = 0; i < n; i++) {
+                    fprintf(f, "    {\"id\": %d, \"rank\": %.6f}%s\n", i, ranks[i], (i == n - 1) ? "" : ",");
+                }
+                fprintf(f, "  ]\n}\n");
+                fclose(f);
+            }
+        }
 
         // Convergence detection globally
         if (has_converged(diff, config)) break;

@@ -13,8 +13,10 @@ int main(int argc, char *argv[]) {
     }
 
     int json_output = 0;
-    if (argc > 2 && strcmp(argv[2], "-j") == 0) {
-        json_output = 1;
+    int export_iter = 0;
+    for (int i = 2; i < argc; i++) {
+        if (strcmp(argv[i], "-j") == 0) json_output = 1;
+        if (strcmp(argv[i], "-e") == 0) export_iter = 1;
     }
 
     Graph *g = load_graph_from_file(argv[1]);
@@ -36,6 +38,20 @@ int main(int argc, char *argv[]) {
         // Sequential doesn't need to split, so it processes the whole graph
         compute_local_contributions(g, 0, n, ranks, new_ranks, &local_dangling_sum, config);
         double diff = apply_global_updates(ranks, new_ranks, n, local_dangling_sum, config);
+
+        if (export_iter) {
+            char filename[256];
+            snprintf(filename, sizeof(filename), "../results/iteration_%d.json", iter);
+            FILE *f = fopen(filename, "w");
+            if (f) {
+                fprintf(f, "{\n  \"iteration\": %d,\n  \"nodes\": [\n", iter);
+                for (int i = 0; i < n; i++) {
+                    fprintf(f, "    {\"id\": %d, \"rank\": %.6f}%s\n", i, ranks[i], (i == n - 1) ? "" : ",");
+                }
+                fprintf(f, "  ]\n}\n");
+                fclose(f);
+            }
+        }
 
         if (has_converged(diff, config)) break;
         iter++;

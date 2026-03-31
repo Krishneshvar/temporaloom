@@ -5,7 +5,7 @@ import { engineDir, cleanResultsDir } from '@/lib/engine';
 
 export async function POST(request) {
   try {
-    const { dataset, useMPI, processes } = await request.json();
+    const { dataset, mode, useMPI, processes } = await request.json();
     
     if (!dataset) {
       return NextResponse.json({ error: 'Dataset is required' }, { status: 400 });
@@ -17,7 +17,13 @@ export async function POST(request) {
     let cmd = '';
     let args = [];
 
-    if (useMPI) {
+    if (mode === 'gpu_seq') {
+      cmd = './pagerank_cuda_seq';
+      args = [datasetPath, '-e', '-j'];
+    } else if (mode === 'gpu_par') {
+      cmd = './pagerank_cuda_par';
+      args = [datasetPath, '-e', '-j'];
+    } else if (mode === 'cpu_par' || useMPI) {
       cmd = 'mpirun';
       args = ['--oversubscribe', '-np', (processes || 4).toString(), './pagerank_mpi', datasetPath, '-e', '-j'];
     } else {

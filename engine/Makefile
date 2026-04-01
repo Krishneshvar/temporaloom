@@ -2,7 +2,7 @@ CC = gcc
 MPICC = mpicc
 NVCC = nvcc
 CFLAGS = -Wall -O3
-NVCCFLAGS = -O3 -arch=sm_60
+NVCCFLAGS = -O3 -arch=sm_86
 LIBS = -lm
 
 GRAPH_SRC = graph/graph.c graph/graph_loader.c graph/graph_generator.c

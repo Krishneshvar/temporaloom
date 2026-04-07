@@ -9,10 +9,13 @@ GRAPH_SRC = graph/graph.c graph/graph_loader.c graph/graph_generator.c
 CORE_SRC = pagerank/pagerank_core.c
 SEQ_SRC = sequential/pagerank_seq.c
 MPI_SRC = mpi/pagerank_mpi.c
+BFS_SEQ_SRC = bfs/bfs_seq.c
+BFS_MPI_SRC = bfs/bfs_mpi.c
+SSP_SEQ_SRC = sssp/sssp_seq.c
 
-.PHONY: all clean seq mpi generator cuda
+.PHONY: all clean seq mpi generator cuda bfs sssp
 
-all: seq mpi generator cuda
+all: seq mpi generator cuda bfs sssp
 
 cuda: cuda_seq cuda_par
 
@@ -31,5 +34,18 @@ mpi: $(GRAPH_SRC) $(CORE_SRC) $(MPI_SRC)
 generator: $(GRAPH_SRC) graph/generate_graph_main.c
 	$(CC) $(CFLAGS) -o generate_graph $(GRAPH_SRC) graph/generate_graph_main.c $(LIBS)
 
+bfs: bfs_seq bfs_mpi
+
+bfs_seq: $(GRAPH_SRC) $(BFS_SEQ_SRC)
+	$(CC) $(CFLAGS) -o bfs_seq $(GRAPH_SRC) $(BFS_SEQ_SRC) $(LIBS)
+
+bfs_mpi: $(GRAPH_SRC) $(BFS_MPI_SRC)
+	$(MPICC) $(CFLAGS) -o bfs_mpi $(GRAPH_SRC) $(BFS_MPI_SRC) $(LIBS)
+
+sssp: sssp_seq
+
+sssp_seq: $(GRAPH_SRC) $(SSP_SEQ_SRC)
+	$(CC) $(CFLAGS) -o sssp_seq $(GRAPH_SRC) $(SSP_SEQ_SRC) $(LIBS)
+
 clean:
-	rm -f pagerank_seq pagerank_mpi generate_graph pagerank_cuda_seq pagerank_cuda_par
+	rm -f pagerank_seq pagerank_mpi generate_graph pagerank_cuda_seq pagerank_cuda_par bfs_seq bfs_mpi sssp_seq

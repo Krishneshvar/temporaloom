@@ -1,4 +1,3 @@
-import { NextResponse } from 'next/server';
 import { buildGraphFromWeb } from '@/lib/scraper';
 
 export async function POST(request) {
@@ -6,21 +5,45 @@ export async function POST(request) {
     const { startUrl, maxDepth } = await request.json();
     
     if (!startUrl || maxDepth === undefined) {
-      return NextResponse.json({ error: 'Missing startUrl or maxDepth parameters' }, { status: 400 });
+      return new Response(JSON.stringify({ error: 'Missing parameters' }), { status: 400 });
     }
     
-    try {
-       new URL(startUrl); 
-    } catch (e) {
-       return NextResponse.json({ error: 'Invalid URL format provided' }, { status: 400 });
-    }
+    const encoder = new TextEncoder();
+    const abortController = new AbortController();
 
-    // Call the scraper utility
-    const result = await buildGraphFromWeb(startUrl, parseInt(maxDepth));
-    
-    return NextResponse.json({ success: true, data: result });
+    const stream = new ReadableStream({
+      async start(controller) {
+        const onUpdate = (event) => {
+          try {
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
+          } catch (e) {
+            // Ignore if controller is closed
+          }
+        };
+
+        try {
+          await buildGraphFromWeb(startUrl, parseInt(maxDepth), onUpdate, abortController.signal);
+        } catch (error) {
+          onUpdate({ type: 'error', message: error.message });
+        } finally {
+          try {
+            controller.close();
+          } catch (e) {}
+        }
+      },
+      cancel() {
+        abortController.abort();
+      }
+    });
+
+    return new Response(stream, {
+      headers: {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+      },
+    });
   } catch (error) {
-    console.error('Scraping error:', error);
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    return new Response(JSON.stringify({ error: error.message }), { status: 500 });
   }
 }

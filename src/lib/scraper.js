@@ -3,10 +3,30 @@ import axios from 'axios';
 import fs from 'fs';
 import path from 'path';
 
-export async function buildGraphFromWeb(startUrl, maxDepth) {
+/**
+ * Robust Web Crawler for Temporaloom
+ * - Concurrency: Multiple workers crawling simultaneously
+ * - Domain Locking: Only crawls URLs within the same hostname
+ * - Normalization: Cleans URLs to prevent duplicates
+ * - Filtering: Ignores non-HTML assets (images, PDFs, etc.)
+ */
+
+// Common non-HTML extensions to skip
+const IGNORED_EXTENSIONS = new Set([
+  '.jpg', '.jpeg', '.png', '.gif', '.svg', '.webp', '.ico',
+  '.mp4', '.mkv', '.avi', '.mov', '.mp3', '.wav',
+  '.pdf', '.zip', '.tar', '.gz', '.xlsx', '.docx', '.pptx',
+  '.css', '.js', '.map', '.json', '.xml'
+]);
+
+export async function buildGraphFromWeb(startUrl, maxDepth, onUpdate = null, signal = null) {
   const urlMap = new Map();
-  const edges = [];
+  const edges = new Set();
   let nextId = 0;
+  
+  const startTime = Date.now();
+  const CRAWL_TIMEOUT_MS = 20000; 
+  const CONCURRENCY_LIMIT = 12; // Increased for high performance
 
   const getId = (url) => {
     if (!urlMap.has(url)) {
@@ -15,93 +35,203 @@ export async function buildGraphFromWeb(startUrl, maxDepth) {
     return urlMap.get(url);
   };
 
-  const queue = [{ url: startUrl, depth: 0 }];
+  const startParsed = new URL(startUrl);
+  const startHostname = startParsed.hostname;
+  const normalizedStart = normalizeUrl(startUrl);
+
+  const queue = [{ url: normalizedStart, depth: 0 }];
   const visited = new Set();
-  const inQueue = new Set();
-  inQueue.add(startUrl);
+  const processing = new Set([normalizedStart]);
+  
+  let activeRequests = 0;
+  let taskAvailableResolver = null;
 
-  while (queue.length > 0) {
-    const { url, depth } = queue.shift();
-
-    if (visited.has(url)) continue;
-    visited.add(url);
-
-    let html;
-    try {
-      const resp = await axios.get(url, { 
-        timeout: 5000, 
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36 Temporaloom-Bot/1.0'
-        }
-      });
-      // Skip non-HTML responses implicitly
-      if (typeof resp.data === 'string') {
-        html = resp.data;
-      } else {
-        continue;
-      }
-    } catch (e) {
-      continue;
+  const notifyTaskAvailable = () => {
+    if (taskAvailableResolver) {
+      taskAvailableResolver();
+      taskAvailableResolver = null;
     }
+  };
 
+  const waitForTask = () => new Promise(resolve => {
+    taskAvailableResolver = resolve;
+  });
+
+  async function processUrl({ url, depth }) {
+    if (signal?.aborted) return;
+    if (Date.now() - startTime >= CRAWL_TIMEOUT_MS) return;
+    if (visited.has(url)) return;
+    
+    visited.add(url);
     const sourceId = getId(url);
 
-    if (depth < maxDepth && html) {
+    // Don't fetch if we've reached max depth (edges are added during the previous depth's scan)
+    if (depth >= maxDepth) return;
+
+    if (onUpdate) onUpdate({ 
+      type: 'crawling', 
+      url, 
+      depth, 
+      nodes: nextId, 
+      edges: edges.size,
+      active: activeRequests 
+    });
+
+    try {
+      const resp = await axios.get(url, { 
+        timeout: 8000,
+        signal: signal,
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36 Temporaloom-Bot/1.4'
+        },
+        validateStatus: (status) => status === 200
+      });
+
+      const contentType = resp.headers['content-type'];
+      if (!contentType || !contentType.includes('text/html')) {
+        if (onUpdate) onUpdate({ type: 'skipped', url, reason: 'non-html' });
+        return;
+      }
+
+      const html = resp.data;
+      if (typeof html !== 'string') return;
+
       const $ = cheerio.load(html);
-      $('a').each((i, el) => {
-        let href = $(el).attr('href');
-        if (!href) return;
+      const links = $('a').map((i, el) => $(el).attr('href')).get();
+
+      // Parallelize link processing (normalization and filtering)
+      const uniqueLinks = Array.from(new Set(links));
+      let foundCount = 0;
+
+      for (const href of uniqueLinks) {
+        if (signal?.aborted) break;
+        if (!href) continue;
 
         try {
           const parsedUrl = new URL(href, url);
-          if (parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:') return;
+          if (parsedUrl.hostname !== startHostname) continue;
+          if (parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:') continue;
           
-          parsedUrl.hash = ''; // Remove fragments to prevent duplication of same physical page
-          const cleanHref = parsedUrl.href;
+          const ext = path.extname(parsedUrl.pathname).toLowerCase();
+          if (IGNORED_EXTENSIONS.has(ext)) continue;
 
+          const cleanHref = normalizeUrl(parsedUrl.href);
           const targetId = getId(cleanHref);
           
           if (sourceId !== targetId) {
-             edges.push([sourceId, targetId]);
+            edges.add(`${sourceId} ${targetId}`);
+            foundCount++;
           }
 
-          if (!visited.has(cleanHref) && !inQueue.has(cleanHref)) {
-            inQueue.add(cleanHref);
-            queue.push({ url: cleanHref, depth: depth + 1 });
+          if (!visited.has(cleanHref) && !processing.has(cleanHref)) {
+             processing.add(cleanHref);
+             queue.push({ url: cleanHref, depth: depth + 1 });
+             notifyTaskAvailable(); // Wake up any waiting workers
           }
-        } catch (e) {
-          // Format error or parsing error -> ignore connection
-        }
-      });
+        } catch (e) {}
+      }
+      
+      if (onUpdate) onUpdate({ type: 'finished', url, found: foundCount, nodes: nextId, edges: edges.size, active: activeRequests });
+
+    } catch (error) {
+      if (axios.isCancel(error)) return;
+      if (onUpdate) onUpdate({ type: 'error', url, message: error.message });
     }
   }
 
-  const numNodes = nextId;
-  const uniqueEdges = new Set();
+  const workers = [];
+  for (let i = 0; i < CONCURRENCY_LIMIT; i++) {
+    workers.push((async () => {
+      while (true) {
+        if (signal?.aborted) break;
+        if (Date.now() - startTime >= CRAWL_TIMEOUT_MS) break;
 
-  for (const [u, v] of edges) {
-    uniqueEdges.add(`${u} ${v}`);
+        const task = queue.shift();
+        
+        if (!task) {
+          // If no tasks, wait if others are still working
+          if (activeRequests > 0) {
+            await Promise.race([
+              waitForTask(),
+              new Promise(r => setTimeout(r, 100)) // Safety timeout
+            ]);
+            continue;
+          } else {
+            // No tasks and no active requests -> we are completely done
+            break;
+          }
+        }
+
+        activeRequests++;
+        try {
+          await processUrl(task);
+        } finally {
+          activeRequests--;
+          notifyTaskAvailable(); // Notify that a slot is free and we might be finished
+        }
+      }
+    })());
   }
 
-  const actualNumEdges = uniqueEdges.size;
+  await Promise.all(workers);
+
+  if (signal?.aborted) {
+    if (onUpdate) onUpdate({ type: 'aborted' });
+    return { aborted: true };
+  }
+
+
+  const numNodes = nextId;
+  const numEdges = edges.size;
   
   if (numNodes === 0) {
-     throw new Error("Unable to parse any nodes or standard HTML from the provided root URL.");
+     throw new Error("Unable to parse any nodes from the provided root URL. Ensure it is a valid HTML page.");
   }
 
-  const safeDomain = new URL(startUrl).hostname.replace(/[^a-z0-9]/gi, '_');
+  // File Generation
+  const safeDomain = startHostname.replace(/[^a-z0-9]/gi, '_');
   const filename = `website_${safeDomain}_d${maxDepth}.txt`;
-  const filepath = path.join(process.cwd(), 'datasets', filename);
+  
+  // Ensure datasets directory exists
+  const datasetsPath = path.join(process.cwd(), 'datasets');
+  if (!fs.existsSync(datasetsPath)) fs.mkdirSync(datasetsPath, { recursive: true });
+  
+  const filepath = path.join(datasetsPath, filename);
 
-  const header = `# nodes edges\n${numNodes} ${actualNumEdges}\n`;
-  const content = header + Array.from(uniqueEdges).join('\n') + '\n';
+  const header = `# nodes edges\n${numNodes} ${numEdges}\n`;
+  const content = header + Array.from(edges).join('\n') + '\n';
 
   fs.writeFileSync(filepath, content);
 
-  return {
+  const finalResult = {
     filename,
     numNodes,
-    numEdges: actualNumEdges,
-    message: `Scraped ${numNodes} interconnected domains/pages. Map generated as ${filename}.`
+    numEdges,
+    message: `Scraped ${numNodes} nodes and ${numEdges} edges. Timeout: ${Date.now() - startTime < CRAWL_TIMEOUT_MS ? 'Success' : 'Partial (reached 20s limit)'}. Dataset generated as ${filename}.`
   };
+
+  if (onUpdate) onUpdate({ type: 'complete', data: finalResult });
+
+  return finalResult;
 }
+
+
+/**
+ * Normalizes a URL: removes fragments, trailing slashes, and ensures consistent format.
+ */
+function normalizeUrl(urlStr) {
+  try {
+    const url = new URL(urlStr);
+    url.hash = ''; // Remove #fragment
+    
+    // Remove trailing slash from pathname if present (unless it's just '/')
+    if (url.pathname.endsWith('/') && url.pathname.length > 1) {
+      url.pathname = url.pathname.slice(0, -1);
+    }
+    
+    return url.href;
+  } catch (e) {
+    return urlStr;
+  }
+}
+

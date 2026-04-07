@@ -55,9 +55,23 @@ __global__ void pagerank_seq_kernel(
     }
 }
 
+void export_iteration(int iter, int n, double *ranks) {
+    char filename[256];
+    snprintf(filename, sizeof(filename), "../results/iteration_%d.json", iter);
+    FILE *f = fopen(filename, "w");
+    if (f) {
+        fprintf(f, "{\n  \"iteration\": %d,\n  \"nodes\": [\n", iter);
+        for (int i = 0; i < n; i++) {
+            fprintf(f, "    {\"id\": %d, \"rank\": %.6f}%s\n", i, ranks[i], (i == n - 1) ? "" : ",");
+        }
+        fprintf(f, "  ]\n}\n");
+        fclose(f);
+    }
+}
+
 int main(int argc, char *argv[]) {
     if (argc < 2) {
-        printf("Usage: %s <dataset_file> [-j]\n", argv[0]);
+        printf("Usage: %s <dataset_file> [-j] [-e]\n", argv[0]);
         return 1;
     }
 
@@ -112,6 +126,8 @@ int main(int argc, char *argv[]) {
     clock_t start = clock();
 
     while (iter < max_iter) {
+        if (export_iter) export_iteration(iter, n, h_ranks);
+
         // Launch single-thread kernel
         pagerank_seq_kernel<<<1, 1>>>(n, d_row_ptr, d_col_adj, d_ranks, d_new_ranks, damping);
         cudaDeviceSynchronize();
@@ -127,22 +143,11 @@ int main(int argc, char *argv[]) {
 
         cudaMemcpy(d_ranks, h_ranks, n * sizeof(double), cudaMemcpyHostToDevice);
 
-        if (export_iter) {
-            char filename[256];
-            snprintf(filename, sizeof(filename), "../results/iteration_%d.json", iter);
-            FILE *f = fopen(filename, "w");
-            if (f) {
-                fprintf(f, "{\n  \"iteration\": %d,\n  \"nodes\": [\n", iter);
-                for (int i = 0; i < n; i++) {
-                    fprintf(f, "    {\"id\": %d, \"rank\": %.6f}%s\n", i, h_ranks[i], (i == n - 1) ? "" : ",");
-                }
-                fprintf(f, "  ]\n}\n");
-                fclose(f);
-            }
-        }
-
-        if (diff < epsilon) break;
         iter++;
+        if (diff < epsilon) {
+            if (export_iter) export_iteration(iter, n, h_ranks);
+            break;
+        }
     }
 
     clock_t end = clock();

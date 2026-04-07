@@ -82,9 +82,23 @@ __global__ void update_pr_kernel(
     }
 }
 
+void export_iteration(int iter, int n, double *ranks) {
+    char filename[256];
+    snprintf(filename, sizeof(filename), "../results/iteration_%d.json", iter);
+    FILE *f = fopen(filename, "w");
+    if (f) {
+        fprintf(f, "{\n  \"iteration\": %d,\n  \"nodes\": [\n", iter);
+        for (int i = 0; i < n; i++) {
+            fprintf(f, "    {\"id\": %d, \"rank\": %.6f}%s\n", i, ranks[i], (i == n - 1) ? "" : ",");
+        }
+        fprintf(f, "  ]\n}\n");
+        fclose(f);
+    }
+}
+
 int main(int argc, char *argv[]) {
     if (argc < 2) {
-        printf("Usage: %s <dataset_file> [-j]\n", argv[0]);
+        printf("Usage: %s <dataset_file> [-j] [-e]\n", argv[0]);
         return 1;
     }
 
@@ -141,7 +155,11 @@ int main(int argc, char *argv[]) {
     int gridSize = (n + blockSize - 1) / blockSize;
 
     while (iter < max_iter) {
-        
+        if (export_iter) {
+            cudaMemcpy(h_ranks, d_ranks, n * sizeof(double), cudaMemcpyDeviceToHost);
+            export_iteration(iter, n, h_ranks);
+        }
+
         double h_zero = 0.0;
         cudaMemcpy(d_dangling_sum, &h_zero, sizeof(double), cudaMemcpyHostToDevice);
         cudaMemcpy(d_diff_sum, &h_zero, sizeof(double), cudaMemcpyHostToDevice);
@@ -157,23 +175,14 @@ int main(int argc, char *argv[]) {
         double diff = 0.0;
         cudaMemcpy(&diff, d_diff_sum, sizeof(double), cudaMemcpyDeviceToHost);
 
-        if (export_iter) {
-            cudaMemcpy(h_ranks, d_ranks, n * sizeof(double), cudaMemcpyDeviceToHost);
-            char filename[256];
-            snprintf(filename, sizeof(filename), "../results/iteration_%d.json", iter);
-            FILE *f = fopen(filename, "w");
-            if (f) {
-                fprintf(f, "{\n  \"iteration\": %d,\n  \"nodes\": [\n", iter);
-                for (int i = 0; i < n; i++) {
-                    fprintf(f, "    {\"id\": %d, \"rank\": %.6f}%s\n", i, h_ranks[i], (i == n - 1) ? "" : ",");
-                }
-                fprintf(f, "  ]\n}\n");
-                fclose(f);
-            }
-        }
-
-        if (diff < epsilon) break;
         iter++;
+        if (diff < epsilon) {
+            if (export_iter) {
+                cudaMemcpy(h_ranks, d_ranks, n * sizeof(double), cudaMemcpyDeviceToHost);
+                export_iteration(iter, n, h_ranks);
+            }
+            break;
+        }
     }
 
     clock_t end = clock();

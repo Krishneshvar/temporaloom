@@ -6,9 +6,23 @@
 
 #include <string.h>
 
+void export_iteration(int iter, int n, double *ranks) {
+    char filename[256];
+    snprintf(filename, sizeof(filename), "../results/iteration_%d.json", iter);
+    FILE *f = fopen(filename, "w");
+    if (f) {
+        fprintf(f, "{\n  \"iteration\": %d,\n  \"nodes\": [\n", iter);
+        for (int i = 0; i < n; i++) {
+            fprintf(f, "    {\"id\": %d, \"rank\": %.6f}%s\n", i, ranks[i], (i == n - 1) ? "" : ",");
+        }
+        fprintf(f, "  ]\n}\n");
+        fclose(f);
+    }
+}
+
 int main(int argc, char *argv[]) {
     if (argc < 2) {
-        printf("Usage: %s <dataset_file> [-j]\n", argv[0]);
+        printf("Usage: %s <dataset_file> [-j] [-e]\n", argv[0]);
         return 1;
     }
 
@@ -33,28 +47,20 @@ int main(int argc, char *argv[]) {
 
     int iter = 0;
     while (iter < config.max_iter) {
+        // Initial state or previous state
+        if (export_iter) export_iteration(iter, n, ranks);
+
         double local_dangling_sum = 0;
         
         // Sequential doesn't need to split, so it processes the whole graph
         compute_local_contributions(g, 0, n, ranks, new_ranks, &local_dangling_sum, config);
         double diff = apply_global_updates(ranks, new_ranks, n, local_dangling_sum, config);
 
-        if (export_iter) {
-            char filename[256];
-            snprintf(filename, sizeof(filename), "../results/iteration_%d.json", iter);
-            FILE *f = fopen(filename, "w");
-            if (f) {
-                fprintf(f, "{\n  \"iteration\": %d,\n  \"nodes\": [\n", iter);
-                for (int i = 0; i < n; i++) {
-                    fprintf(f, "    {\"id\": %d, \"rank\": %.6f}%s\n", i, ranks[i], (i == n - 1) ? "" : ",");
-                }
-                fprintf(f, "  ]\n}\n");
-                fclose(f);
-            }
-        }
-
-        if (has_converged(diff, config)) break;
         iter++;
+        if (has_converged(diff, config)) {
+            if (export_iter) export_iteration(iter, n, ranks);
+            break;
+        }
     }
 
     clock_t end = clock();

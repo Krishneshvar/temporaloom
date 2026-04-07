@@ -1,0 +1,35 @@
+[
+  {
+    "id": "1775546111930-439g",
+    "timestamp": "2026-04-07T07:15:11.930Z",
+    "dataset": "sf_20.txt",
+    "mode": "sequential",
+    "processes": 4,
+    "nodes": 20,
+    "edges": 40,
+    "iterations": 17,
+    "execution_time": 0.000613
+  },
+  {
+    "id": "1775546019992-hx9q",
+    "timestamp": "2026-04-07T07:13:39.992Z",
+    "dataset": "sample.txt",
+    "mode": "sequential",
+    "processes": 4,
+    "nodes": 6,
+    "edges": 8,
+    "iterations": 89,
+    "execution_time": 0.002937
+  },
+  {
+    "id": "1775545115448-g5k7",
+    "timestamp": "2026-04-07T06:58:35.448Z",
+    "dataset": "test_10.txt",
+    "mode": "sequential",
+    "processes": 4,
+    "nodes": 10,
+    "edges": 18,
+    "iterations": 24,
+    "execution_time": 0.000876
+  }
+]

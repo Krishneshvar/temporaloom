@@ -57,7 +57,7 @@ export async function buildGraphFromWeb(startUrl, maxDepth, onUpdate = null, sig
     taskAvailableResolver = resolve;
   });
 
-  async function processUrl({ url, depth }) {
+  async function processUrl({ url, depth }, workerId) {
     if (signal?.aborted) return;
     if (Date.now() - startTime >= CRAWL_TIMEOUT_MS) return;
     if (visited.has(url)) return;
@@ -74,7 +74,8 @@ export async function buildGraphFromWeb(startUrl, maxDepth, onUpdate = null, sig
       depth, 
       nodes: nextId, 
       edges: edges.size,
-      active: activeRequests 
+      active: activeRequests,
+      workerId
     });
 
     try {
@@ -89,7 +90,7 @@ export async function buildGraphFromWeb(startUrl, maxDepth, onUpdate = null, sig
 
       const contentType = resp.headers['content-type'];
       if (!contentType || !contentType.includes('text/html')) {
-        if (onUpdate) onUpdate({ type: 'skipped', url, reason: 'non-html' });
+        if (onUpdate) onUpdate({ type: 'skipped', url, reason: 'non-html', workerId });
         return;
       }
 
@@ -131,16 +132,17 @@ export async function buildGraphFromWeb(startUrl, maxDepth, onUpdate = null, sig
         } catch (e) {}
       }
       
-      if (onUpdate) onUpdate({ type: 'finished', url, found: foundCount, nodes: nextId, edges: edges.size, active: activeRequests });
+      if (onUpdate) onUpdate({ type: 'finished', url, found: foundCount, nodes: nextId, edges: edges.size, active: activeRequests, workerId });
 
     } catch (error) {
       if (axios.isCancel(error)) return;
-      if (onUpdate) onUpdate({ type: 'error', url, message: error.message });
+      if (onUpdate) onUpdate({ type: 'error', url, message: error.message, workerId });
     }
   }
 
   const workers = [];
   for (let i = 0; i < CONCURRENCY_LIMIT; i++) {
+    const workerId = i + 1;
     workers.push((async () => {
       while (true) {
         if (signal?.aborted) break;
@@ -164,7 +166,7 @@ export async function buildGraphFromWeb(startUrl, maxDepth, onUpdate = null, sig
 
         activeRequests++;
         try {
-          await processUrl(task);
+          await processUrl(task, workerId);
         } finally {
           activeRequests--;
           notifyTaskAvailable(); // Notify that a slot is free and we might be finished

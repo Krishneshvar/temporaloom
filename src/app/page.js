@@ -49,6 +49,9 @@ export default function Home() {
   const [isScraping, setIsScraping]       = useState(false);
   const readerRef = useRef(null);
 
+  // Sidebar collapse
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+
   // Stats tab in Run section
   const [showStats, setShowStats]         = useState(false);
 
@@ -298,32 +301,59 @@ export default function Home() {
       </header>
 
       {/* ── Grid ── */}
-      <div className="grid grid-cols-12 gap-6 max-w-[1400px] mx-auto pb-20">
+      <div className="grid grid-cols-12 gap-6 max-w-[1400px] mx-auto pb-20 transition-all duration-700">
 
         {/* Sidebar */}
-        <div className="col-span-12 lg:col-span-3 flex flex-col gap-6">
+        <div 
+          className={`transition-all duration-700 flex flex-col gap-6 relative group
+            ${(isScraping && currentTab === 'scrape') || isSidebarCollapsed 
+              ? 'col-span-12 lg:col-span-1 opacity-40 hover:opacity-100' 
+              : 'col-span-12 lg:col-span-3'}`}
+        >
+          {/* Collapse Toggle Button */}
+          <button
+            onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+            className="absolute -right-3 top-10 z-20 w-6 h-6 bg-[#222] border border-[#333] rounded-full flex items-center justify-center text-white/40 hover:text-white transition-all shadow-xl group-hover:scale-110 active:scale-95"
+            title={isSidebarCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+          >
+            <motion.div
+              animate={{ rotate: isSidebarCollapsed ? 180 : 0 }}
+              transition={{ duration: 0.3 }}
+            >
+              <SkipBack size={10} />
+            </motion.div>
+          </button>
+
           <div className="sticky top-6 flex flex-col gap-6">
-            <ControlPanel
-              onRun={handleRun} onBenchmark={handleBenchmark} onBFS={handleBFS}
-              onScrape={handleScrape} onSSP={handleSSP}
-              loading={loading} status={status}
-              currentTab={currentTab} setCurrentTab={setCurrentTab}
-              liveMode={liveMode}
-            />
-            <RunHistory onRestore={handleRestore} />
-            <div className="p-5 bg-[#111] rounded-2xl border border-[#222] shadow-xl">
-              <div className="flex items-center gap-2 text-white/40 font-bold text-[10px] uppercase tracking-widest mb-3">
-                <Info size={13} /> About
-              </div>
-              <p className="text-[11px] text-[#555] leading-relaxed font-medium">
-                Temporaloom implements PageRank, BFS, and SSSP across CPU Sequential, MPI, and CUDA backends with live SSE streaming. Web-crawled topology ingestion constructs datasets in real-time.
-              </p>
+            <div className={((isScraping && currentTab === 'scrape') || isSidebarCollapsed) ? 'scale-[0.85] origin-top-left' : ''}>
+              <ControlPanel
+                onRun={handleRun} onBenchmark={handleBenchmark} onBFS={handleBFS}
+                onScrape={handleScrape} onSSP={handleSSP}
+                loading={loading} status={status}
+                currentTab={currentTab} setCurrentTab={setCurrentTab}
+                liveMode={liveMode}
+                minimized={(isScraping && currentTab === 'scrape') || isSidebarCollapsed}
+              />
             </div>
+            
+            {!((isScraping && currentTab === 'scrape') || isSidebarCollapsed) && (
+              <motion.div initial={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col gap-6">
+                <RunHistory onRestore={handleRestore} />
+                <div className="p-6 bg-[#111] rounded-2xl border border-[#222] shadow-xl">
+                  <div className="flex items-center gap-2 text-white/40 font-bold text-xs uppercase tracking-widest mb-4">
+                    <Info size={14} /> About System
+                  </div>
+                  <p className="text-xs text-[#666] leading-relaxed font-medium">
+                    Temporaloom implements PageRank, BFS, and SSSP across CPU Sequential, MPI, and CUDA backends with live SSE streaming. Web-crawled topology ingestion constructs datasets in real-time.
+                  </p>
+                </div>
+              </motion.div>
+            )}
           </div>
         </div>
 
         {/* Main */}
-        <div className="col-span-12 lg:col-span-9 flex flex-col gap-6">
+        <div className={`transition-all duration-700 flex flex-col gap-6 ${(isScraping && currentTab === 'scrape') || isSidebarCollapsed ? 'col-span-12 lg:col-span-11' : 'col-span-12 lg:col-span-9'}`}>
           <AnimatePresence mode="wait">
 
             {/* BENCHMARK */}

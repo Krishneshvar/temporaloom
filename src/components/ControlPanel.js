@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Play, Activity, Cpu, Database, Settings2, Globe, Search, BarChart3, Zap, GitBranch, GitMerge } from 'lucide-react';
 
-export default function ControlPanel({ onRun, onBenchmark, onScrape, onBFS, onSSP, loading, status, currentTab, setCurrentTab, liveMode }) {
+export default function ControlPanel({ onRun, onBenchmark, onScrape, onBFS, onSSP, loading, status, currentTab, setCurrentTab, liveMode, minimized = false }) {
   const [datasets, setDatasets] = useState([]);
   const [dataset, setDataset]   = useState('');
 
@@ -33,14 +33,44 @@ export default function ControlPanel({ onRun, onBenchmark, onScrape, onBFS, onSS
     { id: 'scrape',    label: 'Scrape',icon: <Globe size={13} /> },
   ];
 
+  if (minimized) {
+    const activeTab = TABS.find(t => t.id === currentTab) || TABS[0];
+    const getAction = () => {
+      if (currentTab === 'run') return { icon: <Play size={16} />, onClick: () => onRun({ dataset, mode: execMode, processes }), color: 'bg-blue-600 hover:bg-blue-500', title: 'Run Simulation' };
+      if (currentTab === 'benchmark') return { icon: <BarChart3 size={16} />, onClick: () => onBenchmark({ dataset, processes }), color: 'bg-emerald-600 hover:bg-emerald-500', title: 'Start Benchmark' };
+      if (currentTab === 'bfs') return { icon: <GitBranch size={16} />, onClick: () => onBFS?.({ dataset, mode: bfsMode, processes: bfsProcesses, source: bfsSource }), color: 'bg-emerald-600 hover:bg-emerald-500', title: 'Run BFS' };
+      return { icon: <Search size={16} />, onClick: () => onScrape({ startUrl: scrapeUrl, maxDepth }), color: 'bg-purple-600 hover:bg-purple-500', title: 'Generate Graph' };
+    };
+    const action = getAction();
+
+    return (
+      <div className="flex flex-col gap-4 p-3 bg-[#111] rounded-2xl border border-[#222] shadow-2xl transition-all duration-500 overflow-hidden">
+        <div className="flex flex-col items-center gap-4">
+          <div className="p-2 bg-white/5 rounded-lg border border-white/10 text-white/40">
+            {activeTab.icon}
+          </div>
+          <div className="h-px w-full bg-[#222]" />
+          <button 
+            onClick={action.onClick}
+            disabled={loading || (currentTab === 'scrape' ? !scrapeUrl : !dataset)}
+            className={`w-10 h-10 ${action.color} rounded-xl flex items-center justify-center text-white transition-all active:scale-90 shadow-lg disabled:opacity-20`}
+            title={action.title}
+          >
+            {loading ? <Activity className="animate-spin" size={16} /> : action.icon}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-5 p-6 bg-[#111] rounded-2xl border border-[#222] shadow-2xl font-sans">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2 text-white font-bold opacity-80">
-          <Settings2 size={18} /><span>Control Center</span>
+          <Settings2 size={18} /><span className="text-sm uppercase tracking-tight">Control Center</span>
         </div>
         {liveMode && (
-          <span className="text-[9px] bg-blue-500/10 text-blue-400 border border-blue-500/20 px-2 py-0.5 rounded-full font-black uppercase tracking-widest animate-pulse">
+          <span className="text-[10px] bg-blue-500/10 text-blue-400 border border-blue-500/20 px-2 py-0.5 rounded-full font-black uppercase tracking-widest animate-pulse">
             ⚡ Live
           </span>
         )}
@@ -50,7 +80,7 @@ export default function ControlPanel({ onRun, onBenchmark, onScrape, onBFS, onSS
       <div className="grid grid-cols-4 gap-1 bg-[#1a1a1a] p-1 rounded-xl border border-[#333]">
         {TABS.map(tab => (
           <button key={tab.id} onClick={() => setCurrentTab(tab.id)}
-            className={`flex flex-col items-center gap-1 px-1 py-2 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${currentTab === tab.id ? 'bg-[#333] text-white shadow' : 'text-[#555] hover:text-white'}`}>
+            className={`flex flex-col items-center gap-1 px-1 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${currentTab === tab.id ? 'bg-[#333] text-white shadow' : 'text-[#444] hover:text-white'}`}>
             {tab.icon}{tab.label}
           </button>
         ))}
@@ -59,13 +89,13 @@ export default function ControlPanel({ onRun, onBenchmark, onScrape, onBFS, onSS
       {/* Dataset selector (hidden for scrape) */}
       {currentTab !== 'scrape' && (
         <div className="flex flex-col gap-2">
-          <label className="text-white text-xs font-semibold opacity-50 flex items-center gap-1"><Database size={12} /> Dataset</label>
+          <label className="text-white text-xs font-semibold opacity-50 flex items-center gap-2 mb-1"><Database size={14} /> Dataset Architecture</label>
           <select value={dataset} onChange={e => setDataset(e.target.value)}
-            className="bg-[#1a1a1a] border border-[#333] text-white p-3 rounded-xl focus:outline-none focus:ring-1 focus:ring-blue-500 transition-all cursor-pointer text-sm">
-            <option value="">Select a graph...</option>
+            className="bg-[#1a1a1a] border border-[#333] text-white p-3.5 rounded-xl focus:outline-none focus:ring-1 focus:ring-blue-500 transition-all cursor-pointer text-sm">
+            <option value="">Select a topology graph...</option>
             {datasets.map(d => <option key={d} value={d}>{d}</option>)}
           </select>
-          <a href="/datasets" className="text-[10px] text-blue-500/60 hover:text-blue-400 font-bold ml-1 transition-colors">+ Manage datasets</a>
+          <a href="/datasets" className="text-[10px] text-blue-500/60 hover:text-blue-400 font-bold ml-1 transition-colors uppercase tracking-tight">+ Ingest Custom Data</a>
         </div>
       )}
 
@@ -210,7 +240,7 @@ export default function ControlPanel({ onRun, onBenchmark, onScrape, onBFS, onSS
       )}
 
       {status && (
-        <div className={`p-3 text-[11px] rounded-xl font-mono border overflow-hidden break-words leading-relaxed ${status.toLowerCase().includes('error') ? 'bg-red-500/10 border-red-500/20 text-red-400' : 'bg-blue-500/10 border-blue-500/20 text-blue-400'}`}>
+        <div className={`p-4 text-xs rounded-xl font-mono border overflow-hidden break-words leading-relaxed ${status.toLowerCase().includes('error') ? 'bg-red-500/10 border-red-500/20 text-red-400' : 'bg-blue-500/10 border-blue-500/20 text-blue-400'}`}>
           {status}
         </div>
       )}

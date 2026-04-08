@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import * as d3 from 'd3';
 import { Layers } from 'lucide-react';
+import { useTheme } from '@/components/ThemeProvider';
 import NodeInspector from '@/components/NodeInspector';
 
 const LAYOUTS = [
@@ -12,6 +13,7 @@ const LAYOUTS = [
 ];
 
 export default function GraphViewer({ dataset, iterationData, onNodeClick, onGraphLoaded }) {
+  const { theme } = useTheme();
   const svgRef       = useRef(null);
   const containerRef = useRef(null);
   const simulationRef = useRef(null);

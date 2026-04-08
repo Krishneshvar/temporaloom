@@ -19,6 +19,7 @@ export default function ScrapeVisualizer({ events, isScraping, onStop }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [concurrency, setConcurrency] = useState(12);
   const [showDNA, setShowDNA] = useState(false);
+  const [isFullScreen, setIsFullScreen] = useState(false);
 
   // Auto-scroll log (restricted to log container)
   useEffect(() => {
@@ -294,13 +295,14 @@ export default function ScrapeVisualizer({ events, isScraping, onStop }) {
                </div>
                <input 
                 value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
-                placeholder="Find URL in graph..." 
+                placeholder="Find URL in graph or keyword..." 
                 className="bg-[var(--surface-hover)] border border-[var(--border)] p-3 rounded-xl focus:ring-1 focus:ring-emerald-500 outline-none text-xs text-[var(--foreground)]/80 w-full placeholder:text-[var(--text-muted)]"
                />
             </div>
           </div>
         )}
       </div>
+
 
       {/* Main two-panel area */}
       <div className={`flex-1 grid grid-cols-12 gap-6 min-h-0 transition-all duration-700 ${isScraping ? 'flex-grow' : ''}`}>
@@ -326,7 +328,8 @@ export default function ScrapeVisualizer({ events, isScraping, onStop }) {
 
           <div 
             ref={logContainerRef}
-            className={`overflow-y-auto p-4 font-mono text-xs leading-relaxed custom-scrollbar bg-[var(--background)]/40 flex-1 ${isScraping ? 'min-h-0' : 'min-h-[400px]'}`}
+            className="overflow-y-scroll p-4 font-mono text-xs leading-none custom-scrollbar bg-[var(--background)]/40 flex-1 max-h-[500px]"
+            style={{ scrollbarWidth: 'thin' }}
           >
             <AnimatePresence initial={false}>
               {displayEvents.map((event, i) => (
@@ -354,27 +357,37 @@ export default function ScrapeVisualizer({ events, isScraping, onStop }) {
           )}
         </div>
 
-        {/* Live Crawl Graph */}
-        <div className={`flex flex-col gap-4 transition-all duration-700 ${isScraping ? 'col-span-12 lg:col-span-8' : 'col-span-12 lg:col-span-5'}`}>
+        <div className={`flex flex-col gap-4 transition-all duration-700 ${isFullScreen ? 'fixed inset-0 z-[100] bg-[var(--background)] p-8' : isScraping ? 'col-span-12 lg:col-span-8' : 'col-span-12 lg:col-span-5'}`}>
           <div className="flex-1 bg-[var(--background)] rounded-2xl border border-[var(--border)] overflow-hidden relative shadow-2xl flex flex-col">
             <div className="p-4 border-b border-[var(--border)] flex items-center justify-between">
               <div className="flex items-center gap-4">
                 <Globe size={14} className="text-purple-400" />
-                <span className="text-xs font-black uppercase tracking-widest text-[var(--text-muted)]">Live Topology Visualizer</span>
+                <span className="text-xs font-black uppercase tracking-widest text-[var(--text-muted)]">
+                  {isFullScreen ? 'Topology Deep-Dive' : 'Live Topology Visualizer'}
+                </span>
                 <div className="bg-[var(--surface)] rounded-lg border border-[var(--border)] p-1 flex items-center gap-1">
                   <div className="w-12 h-2 bg-gradient-to-r from-purple-800 to-yellow-400 rounded-sm" />
                   <span className="text-[8px] font-black text-[var(--text-dim)] uppercase">Heatmap (PageRank)</span>
                 </div>
               </div>
               <div className="flex items-center gap-3">
-                <button 
-                  onClick={() => setShowDNA(!showDNA)}
-                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all border ${showDNA ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400' : 'bg-[var(--surface-hover)] border-[var(--border)] text-[var(--text-dim)] hover:text-[var(--foreground)]'}`}
-                >
-                  <TrendingUp size={12} /> Graph DNA
-                </button>
-                {isScraping && (
-                  <div className="flex items-center gap-4 px-4 py-1.5 bg-[var(--surface)] rounded-full border border-[var(--border)]">
+                <div className="flex items-center gap-2">
+                  <button 
+                    onClick={() => setShowDNA(!showDNA)}
+                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all border ${showDNA ? 'bg-emerald-500 text-white border-emerald-500' : 'bg-[var(--surface-hover)] border-[var(--border)] text-[var(--text-dim)] hover:text-[var(--foreground)]'}`}
+                  >
+                    <TrendingUp size={12} /> Graph DNA
+                  </button>
+                  <button 
+                    onClick={() => setIsFullScreen(!isFullScreen)}
+                    className={`p-1.5 rounded-lg transition-all shadow-sm border ${isFullScreen ? 'bg-red-500/10 text-red-500 border-red-500/20' : 'bg-[var(--surface-hover)] text-[var(--text-dim)] border-[var(--border)] hover:text-white'}`}
+                    title={isFullScreen ? "Exit Fullscreen" : "Fullscreen Mode"}
+                  >
+                    {isFullScreen ? <X size={14} /> : <Maximize2 size={14} />}
+                  </button>
+                </div>
+                {(isScraping || isFullScreen) && (
+                  <div className="flex items-center gap-4 px-4 py-1.5 bg-[var(--surface)] font-mono rounded-full border border-[var(--border)]">
                     <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-blue-500" /> <span className="text-[10px] font-black text-[var(--text-dim)] uppercase">NODES: {stats.nodes}</span></div>
                     <div className="w-px h-3 bg-[var(--border)]" />
                     <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-purple-500" /> <span className="text-[10px] font-black text-[var(--text-dim)] uppercase">EDGES: {stats.edges}</span></div>
@@ -383,7 +396,7 @@ export default function ScrapeVisualizer({ events, isScraping, onStop }) {
               </div>
             </div>
             
-            <div className={`flex-1 relative transition-all duration-500 ${isScraping ? 'min-h-0' : 'min-h-[400px]'}`}>
+            <div className="flex-1 relative transition-all duration-500 min-h-[400px]">
               <svg ref={svgRef} className="w-full h-full cursor-crosshair" />
               
               {/* Node Inspector Overlay */}
@@ -519,11 +532,11 @@ export default function ScrapeVisualizer({ events, isScraping, onStop }) {
 
 function StatCard({ icon, label, value, color }) {
   return (
-    <div className="p-6 bg-[var(--surface)] rounded-2xl border border-[var(--border)] shadow-xl flex flex-col gap-2 transition-all hover:border-[var(--text-dim)] hover:translate-y-[-2px]">
-      <div className={`flex items-center gap-2 font-bold text-xs uppercase tracking-widest opacity-40 mb-1 ${color}`}>
+    <div className="p-6 bg-[var(--surface)] rounded-2xl border border-[var(--border)] shadow-xl flex flex-col gap-2 transition-all hover:border-[var(--text-muted)] hover:translate-y-[-2px]">
+      <div className={`flex items-center gap-2 font-bold text-xs uppercase tracking-widest opacity-50 mb-1 ${color}`}>
         {icon}{label}
       </div>
-      <div className="text-3xl font-black font-mono tracking-tighter text-[var(--foreground)]">{value.toLocaleString()}</div>
+      <div className="text-4xl font-black font-mono tracking-tighter text-[var(--foreground)]">{value.toLocaleString()}</div>
     </div>
   );
 }

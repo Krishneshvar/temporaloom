@@ -1,5 +1,85 @@
 [
   {
+    "id": "1775667475957-cyyzuw8",
+    "timestamp": "2026-04-08T16:57:55.957Z",
+    "startUrl": "https://crawler-test.com",
+    "maxDepth": 2,
+    "numNodes": 1001,
+    "numEdges": 2551
+  },
+  {
+    "id": "1775667475791-gp79bmk",
+    "timestamp": "2026-04-08T16:57:55.791Z",
+    "startUrl": "https://crawler-test.com",
+    "maxDepth": 2,
+    "numNodes": 1001,
+    "numEdges": 2551
+  },
+  {
+    "id": "1775667245059-10zz0ru",
+    "timestamp": "2026-04-08T16:54:05.060Z",
+    "startUrl": "https://crawler-test.com",
+    "maxDepth": 3,
+    "numNodes": 1070,
+    "numEdges": 3674
+  },
+  {
+    "id": "1775667244703-6ysih3v",
+    "timestamp": "2026-04-08T16:54:04.703Z",
+    "startUrl": "https://crawler-test.com",
+    "maxDepth": 3,
+    "numNodes": 1070,
+    "numEdges": 3674
+  },
+  {
+    "id": "1775666560464-j2yvmfi",
+    "timestamp": "2026-04-08T16:42:40.464Z",
+    "startUrl": "https://crawler-test.com",
+    "maxDepth": 2,
+    "numNodes": 1001,
+    "numEdges": 2551
+  },
+  {
+    "id": "1775666560268-uv6wsuw",
+    "timestamp": "2026-04-08T16:42:40.268Z",
+    "startUrl": "https://crawler-test.com",
+    "maxDepth": 2,
+    "numNodes": 1001,
+    "numEdges": 2551
+  },
+  {
+    "id": "1775666467685-2m7c0wa",
+    "timestamp": "2026-04-08T16:41:07.685Z",
+    "startUrl": "https://crawler-test.com",
+    "maxDepth": 2,
+    "numNodes": 1001,
+    "numEdges": 2551
+  },
+  {
+    "id": "1775666467493-6zixzka",
+    "timestamp": "2026-04-08T16:41:07.493Z",
+    "startUrl": "https://crawler-test.com",
+    "maxDepth": 2,
+    "numNodes": 1001,
+    "numEdges": 2551
+  },
+  {
+    "id": "1775665115128-44orez3",
+    "timestamp": "2026-04-08T16:18:35.128Z",
+    "startUrl": "https://crawler-test.com",
+    "maxDepth": 4,
+    "numNodes": 585,
+    "numEdges": 2090
+  },
+  {
+    "id": "1775665115035-btccoim",
+    "timestamp": "2026-04-08T16:18:35.035Z",
+    "startUrl": "https://crawler-test.com",
+    "maxDepth": 4,
+    "numNodes": 585,
+    "numEdges": 2090
+  },
+  {
     "id": "1775659640119-apoe9gs",
     "timestamp": "2026-04-08T14:47:20.119Z",
     "startUrl": "https://crawler-test.com",

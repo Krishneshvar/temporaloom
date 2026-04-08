@@ -5,8 +5,9 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Layers, Zap, Info, Binary, Terminal, GitBranch, Play, Pause,
-  SkipBack, SkipForward, Radio, BarChart2, GitMerge,
+  SkipBack, SkipForward, Radio, BarChart2, GitMerge, Sun, Moon
 } from 'lucide-react';
+import { useTheme } from '@/components/ThemeProvider';
 import GraphViewer    from '@/components/GraphViewer';
 import ControlPanel   from '@/components/ControlPanel';
 import PerformanceChart from '@/components/PerformanceChart';
@@ -15,6 +16,7 @@ import ScrapeVisualizer from '@/components/ScrapeVisualizer';
 import BFSResult      from '@/components/BFSResult';
 import GraphStats     from '@/components/GraphStats';
 import RunHistory     from '@/components/RunHistory';
+import ScrapeHistory  from '@/components/ScrapeHistory';
 
 export default function Home() {
   return (
@@ -25,6 +27,7 @@ export default function Home() {
 }
 
 function HomeContent() {
+  const { theme, toggleTheme } = useTheme();
   const [loading, setLoading]             = useState(false);
   const [status, setStatus]               = useState('');
   const [selectedDataset, setSelectedDataset] = useState('');
@@ -33,13 +36,13 @@ function HomeContent() {
   const [runResult, setRunResult]         = useState(null);
   const [iteration, setIteration]         = useState(0);
   const [iterationData, setIterationData] = useState(null);
-  const [liveMode, setLiveMode]           = useState(true);   // Feature 9
+  const [liveMode, setLiveMode]           = useState(true);   
   const [liveIterCount, setLiveIterCount] = useState(0);
   const liveReaderRef = useRef(null);
 
   // Graph metadata from GraphViewer parse
-  const [graphStats, setGraphStats]       = useState(null);   // Feature 12
-  const [selectedNode, setSelectedNode]   = useState(null);   // Feature 4 (inspector in viewer)
+  const [graphStats, setGraphStats]       = useState(null);   
+  const [selectedNode, setSelectedNode]   = useState(null);   
 
   // Auto-play
   const [isPlaying, setIsPlaying]         = useState(false);
@@ -109,7 +112,7 @@ function HomeContent() {
     setIsPlaying(p => !p);
   };
 
-  // ── Feature 9: Live streaming run ─────────────────────────────────────────
+  // ── Live streaming run ─────────────────────────────────────────
   const handleRun = async ({ dataset, mode, processes }) => {
     setLoading(true);
     setStatus('Initializing simulation...');
@@ -121,7 +124,6 @@ function HomeContent() {
     setLiveIterCount(0);
 
     if (liveMode) {
-      // ── SSE streaming path ───────────────────────────────────────────────
       try {
         const res = await fetch('/api/run/stream', {
           method: 'POST',
@@ -133,7 +135,7 @@ function HomeContent() {
         const reader = res.body.getReader();
         liveReaderRef.current = reader;
         const decoder = new TextDecoder();
-        let buffer = '', iterBuffer = [], maxIter = 0;
+        let buffer = '';
 
         while (true) {
           const { done, value } = await reader.read();
@@ -146,22 +148,17 @@ function HomeContent() {
             if (!line.startsWith('data: ')) continue;
             try {
               const ev = JSON.parse(line.slice(6));
-
               if (ev.type === 'iteration') {
-                iterBuffer.push(ev.data);
                 const n = ev.data.iteration ?? 0;
-                if (n > maxIter) maxIter = n;
-                setLiveIterCount(maxIter + 1);
+                setLiveIterCount(prev => Math.max(prev, n + 1));
                 setIteration(n);
                 setIterationData(ev.data);
               }
-
               if (ev.type === 'complete') {
                 setRunResult(ev.data);
                 setIteration(ev.data.iterations - 1);
                 setStatus(`Converged in ${ev.data.iterations} iters [${(ev.data.mode ?? mode)?.toUpperCase()}] — Live stream complete.`);
               }
-
               if (ev.type === 'error') {
                 setStatus(`Engine Error: ${ev.message}`);
               }
@@ -175,7 +172,6 @@ function HomeContent() {
         liveReaderRef.current = null;
       }
     } else {
-      // ── Batch path (legacy) ───────────────────────────────────────────────
       try {
         const res = await fetch('/api/run', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -205,6 +201,12 @@ function HomeContent() {
     if (record.dataset) setSelectedDataset(record.dataset);
     setStatus(`Restored: ${record.dataset} · ${record.iterations} iters · ${record.mode}`);
     setCurrentTab('run');
+  };
+
+  const handleRestoreScrape = (events) => {
+    setScrapeEvents(events);
+    setStatus(`Replaying session: ${events.length} events loaded.`);
+    setCurrentTab('scrape');
   };
 
   // ── Benchmark ─────────────────────────────────────────────────────────────
@@ -266,22 +268,49 @@ function HomeContent() {
         const lines = buf.split('\n\n'); buf = lines.pop();
         for (const line of lines) {
           if (!line.startsWith('data: ')) continue;
-          try { const ev = JSON.parse(line.slice(6)); setScrapeEvents(p => [...p, ev]); if (ev.type === 'complete') setStatus(ev.data.message); } catch (_) {}
+          try { 
+            const ev = JSON.parse(line.slice(6)); 
+            setScrapeEvents(p => {
+              const next = [...p, ev];
+              // If last event, trigger save (or we can do it in finally)
+              return next;
+            }); 
+            if (ev.type === 'complete') setStatus(ev.data.message); 
+          } catch (_) {}
         }
       }
     } catch (err) {
       setStatus(`Error: ${err.message}`);
       setScrapeEvents(p => [...p, { type: 'error', message: err.message, url: 'SYSTEM' }]);
-    } finally { setLoading(false); setIsScraping(false); readerRef.current = null; }
+    } finally { 
+      setLoading(false); 
+      setIsScraping(false); 
+      readerRef.current = null;
+      
+      // Save to history if we have events
+      setScrapeEvents(events => {
+        if (events.length > 5) {
+          fetch('/api/scrape/history', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              metadata: { startUrl, maxDepth },
+              events: events
+            })
+          }).catch(console.error);
+        }
+        return events;
+      });
+    }
   };
 
   const stopScrape = () => readerRef.current?.cancel();
 
   return (
-    <main className="min-h-screen bg-[#050505] text-white p-6 font-sans selection:bg-blue-500/30">
+    <main className={`flex flex-col text-[var(--foreground)] p-6 font-sans selection:bg-blue-500/30 ${currentTab === 'scrape' && isScraping ? 'h-screen overflow-hidden' : 'min-h-screen'}`}>
 
       {/* ── Header ── */}
-      <header className="flex items-center justify-between mb-8 max-w-[1400px] mx-auto">
+      <header className="flex items-center justify-between mb-8 max-w-[1400px] mx-auto w-full shrink-0">
         <div className="flex items-center gap-3">
           <div className="p-3 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-2xl shadow-lg shadow-blue-500/20">
             <Layers size={24} className="text-white" />
@@ -291,39 +320,47 @@ function HomeContent() {
               TEMPORALOOM
               <span className="bg-blue-500/10 text-blue-400 text-[10px] px-2 py-0.5 rounded-full border border-blue-500/20 font-mono">v2.1 // ALPHA</span>
             </h1>
-            <p className="text-[#555] text-xs font-semibold uppercase tracking-widest">Distributed Graph Analytics Engine</p>
+            <p className="text-[var(--text-muted)] text-xs font-semibold uppercase tracking-widest">Distributed Graph Analytics Engine</p>
           </div>
         </div>
 
-        <div className="flex items-center gap-4 px-6 py-3 bg-[#111] rounded-2xl border border-[#222] shadow-xl">
+        <div className="flex items-center gap-4 px-6 py-3 bg-[var(--surface)] rounded-2xl border border-[var(--border)] shadow-xl">
+          <button
+            onClick={toggleTheme}
+            className="p-2 hover:bg-[var(--surface-hover)] rounded-xl transition-colors text-[var(--text-dim)] hover:text-[var(--foreground)]"
+            title="Toggle Theme"
+          >
+            {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+          </button>
+          <div className="w-px h-8 bg-[var(--border)]" />
           <div className="flex flex-col">
-            <span className="text-[10px] text-[#555] font-bold uppercase">Engine</span>
+            <span className="text-[10px] text-[var(--text-muted)] font-bold uppercase">Engine</span>
             <span className="text-xs text-green-400 flex items-center gap-1.5 font-bold">
               <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" /> Operational
             </span>
           </div>
-          <div className="w-px h-8 bg-[#222]" />
+          <div className="w-px h-8 bg-[var(--border)]" />
           {/* Live-mode toggle */}
           <div className="flex flex-col gap-0.5">
-            <span className="text-[10px] text-[#555] font-bold uppercase">Live Stream</span>
+            <span className="text-[10px] text-[var(--text-muted)] font-bold uppercase">Live Stream</span>
             <button
               onClick={() => setLiveMode(p => !p)}
-              className={`flex items-center gap-1.5 text-xs font-bold transition-colors ${liveMode ? 'text-blue-400' : 'text-white/30'}`}
+              className={`flex items-center gap-1.5 text-xs font-bold transition-colors ${liveMode ? 'text-blue-400' : 'text-[var(--text-dim)]'}`}
             >
               <Radio size={12} className={liveMode ? 'animate-pulse' : ''} />
               {liveMode ? 'On' : 'Off'}
             </button>
           </div>
-          <div className="w-px h-8 bg-[#222]" />
+          <div className="w-px h-8 bg-[var(--border)]" />
           <div className="flex flex-col">
-            <span className="text-[10px] text-[#555] font-bold uppercase">Datasets</span>
+            <span className="text-[10px] text-[var(--text-muted)] font-bold uppercase">Datasets</span>
             <a href="/datasets" className="text-xs text-blue-400 hover:text-blue-300 font-bold transition-colors">Open Manager →</a>
           </div>
         </div>
       </header>
 
       {/* ── Grid ── */}
-      <div className="grid grid-cols-12 gap-6 max-w-[1400px] mx-auto pb-20 transition-all duration-700">
+      <div className={`grid grid-cols-12 gap-6 max-w-[1400px] mx-auto transition-all duration-700 ${currentTab === 'scrape' && isScraping ? 'flex-1 min-h-0 pb-6' : 'pb-20'}`}>
 
         {/* Sidebar */}
         <div 
@@ -335,7 +372,7 @@ function HomeContent() {
           {/* Collapse Toggle Button */}
           <button
             onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-            className="absolute -right-3 top-10 z-20 w-6 h-6 bg-[#222] border border-[#333] rounded-full flex items-center justify-center text-white/40 hover:text-white transition-all shadow-xl group-hover:scale-110 active:scale-95"
+            className="absolute -right-3 top-10 z-20 w-6 h-6 bg-[var(--surface)] border border-[var(--border)] rounded-full flex items-center justify-center text-[var(--text-dim)] hover:text-[var(--foreground)] transition-all shadow-xl group-hover:scale-110 active:scale-95"
             title={isSidebarCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
           >
             <motion.div
@@ -360,12 +397,16 @@ function HomeContent() {
             
             {!((isScraping && currentTab === 'scrape') || isSidebarCollapsed) && (
               <motion.div initial={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col gap-6">
-                <RunHistory onRestore={handleRestore} />
-                <div className="p-6 bg-[#111] rounded-2xl border border-[#222] shadow-xl">
-                  <div className="flex items-center gap-2 text-white/40 font-bold text-xs uppercase tracking-widest mb-4">
+                {currentTab === 'scrape' ? (
+                  <ScrapeHistory onRestore={handleRestoreScrape} />
+                ) : (
+                  <RunHistory onRestore={handleRestore} />
+                )}
+                <div className="p-6 bg-[var(--surface)] rounded-2xl border border-[var(--border)] shadow-xl">
+                  <div className="flex items-center gap-2 text-[var(--text-dim)] font-bold text-xs uppercase tracking-widest mb-4">
                     <Info size={14} /> About System
                   </div>
-                  <p className="text-xs text-[#666] leading-relaxed font-medium">
+                  <p className="text-xs text-[var(--text-muted)] leading-relaxed font-medium">
                     Temporaloom implements PageRank, BFS, and SSSP across CPU Sequential, MPI, and CUDA backends with live SSE streaming. Web-crawled topology ingestion constructs datasets in real-time.
                   </p>
                 </div>
@@ -391,8 +432,8 @@ function HomeContent() {
                 <div className="flex items-center gap-3 px-1">
                   <div className="p-2 bg-emerald-500/10 rounded-lg border border-emerald-500/20 text-emerald-400"><GitBranch size={16} /></div>
                   <div>
-                    <span className="text-[10px] text-[#555] font-bold uppercase tracking-widest block">Graph Traversal · BFS + SSSP</span>
-                    <span className="text-sm text-white font-bold">{selectedDataset || 'Select a dataset'}</span>
+                    <span className="text-[10px] text-[var(--text-muted)] font-bold uppercase tracking-widest block">Graph Traversal · BFS + SSSP</span>
+                    <span className="text-sm text-[var(--foreground)] font-bold">{selectedDataset || 'Select a dataset'}</span>
                   </div>
                 </div>
 
@@ -402,7 +443,7 @@ function HomeContent() {
                     className={`p-4 rounded-2xl border flex items-start gap-3 ${ssspResult.path?.length > 0 ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-red-500/10 border-red-500/20'}`}>
                     <GitMerge size={16} className={ssspResult.path?.length > 0 ? 'text-emerald-400 mt-0.5 shrink-0' : 'text-red-400 mt-0.5 shrink-0'} />
                     <div className="flex-1 min-w-0">
-                      <div className="text-[10px] font-black uppercase tracking-widest mb-1 text-white/40">
+                      <div className="text-[10px] font-black uppercase tracking-widest mb-1 text-[var(--text-dim)]">
                         Shortest Path — Node {ssspResult.source} → {ssspResult.target}
                       </div>
                       {ssspResult.path?.length > 0 ? (
@@ -410,16 +451,16 @@ function HomeContent() {
                           {ssspResult.path.map((n, i) => (
                             <span key={i} className="flex items-center gap-1">
                               <span className="px-2 py-0.5 bg-emerald-500/20 border border-emerald-500/30 rounded-md text-[11px] font-black font-mono text-emerald-300">{n}</span>
-                              {i < ssspResult.path.length - 1 && <span className="text-white/20 text-xs">→</span>}
+                              {i < ssspResult.path.length - 1 && <span className="text-[var(--text-dim)] text-xs">→</span>}
                             </span>
                           ))}
-                          <span className="ml-2 text-[10px] text-white/30 font-mono">({ssspResult.distance} hops · {ssspResult.execution_time?.toFixed(4)}s)</span>
+                          <span className="ml-2 text-[10px] text-[var(--text-dim)] font-mono">({ssspResult.distance} hops · {ssspResult.execution_time?.toFixed(4)}s)</span>
                         </div>
                       ) : (
                         <span className="text-red-400 font-bold text-sm">Unreachable</span>
                       )}
                     </div>
-                    <button onClick={() => setShowSSSP(false)} className="text-white/20 hover:text-white text-xs font-mono shrink-0">✕</button>
+                    <button onClick={() => setShowSSSP(false)} className="text-[var(--text-dim)] hover:text-[var(--foreground)] text-xs font-mono shrink-0">✕</button>
                   </motion.div>
                 )}
 
@@ -429,7 +470,7 @@ function HomeContent() {
 
             {/* SCRAPE */}
             {currentTab === 'scrape' && (
-              <motion.div key="scrape" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="flex flex-col gap-6 min-h-[500px]">
+              <motion.div key="scrape" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="flex flex-col gap-6 h-full min-h-0">
                 <ScrapeVisualizer events={scrapeEvents} isScraping={isScraping} onStop={stopScrape} />
               </motion.div>
             )}
@@ -444,45 +485,45 @@ function HomeContent() {
                     <Radio size={14} className="text-blue-500 animate-pulse shrink-0" />
                     <div className="flex-1">
                       <span className="text-[10px] font-black uppercase text-blue-400 tracking-widest">Live Stream Active</span>
-                      <span className="text-[11px] text-white/40 ml-3">{liveIterCount} iterations received</span>
+                      <span className="text-[11px] text-[var(--text-dim)] ml-3">{liveIterCount} iterations received</span>
                     </div>
                     <button onClick={stopLive} className="text-[10px] bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/15 px-3 py-1 rounded-lg font-bold">Stop</button>
                   </div>
                 )}
 
                 {/* Graph viewer */}
-                <div className="relative bg-[#111] rounded-2xl border border-[#222] shadow-2xl overflow-visible min-h-[400px]">
+                <div className="relative bg-[var(--surface)] rounded-2xl border border-[var(--border)] shadow-2xl overflow-visible min-h-[400px]">
                   <div className="absolute top-6 left-6 z-10 flex items-center gap-2 pointer-events-none">
                     <div className="p-2 bg-blue-500/10 rounded-lg border border-blue-500/20 text-blue-400"><Binary size={16} /></div>
                     <div className="flex flex-col">
-                      <span className="text-[10px] text-[#555] font-bold uppercase">Graph Simulation</span>
-                      <span className="text-xs text-white font-bold">{selectedDataset || 'Waiting...'}</span>
+                      <span className="text-[10px] text-[var(--text-muted)] font-bold uppercase">Graph Simulation</span>
+                      <span className="text-xs text-[var(--foreground)] font-bold">{selectedDataset || 'Waiting...'}</span>
                     </div>
                   </div>
 
                   {/* Iteration controls */}
                   {runResult && (
-                    <div className="absolute bottom-6 left-6 right-6 z-10 flex items-center gap-4 bg-black/80 backdrop-blur-xl p-4 rounded-2xl border border-white/10 shadow-2xl">
+                    <div className="absolute bottom-6 left-6 right-6 z-10 flex items-center gap-4 bg-[var(--background)]/80 backdrop-blur-xl p-4 rounded-2xl border border-[var(--border)] shadow-xl">
                       <div className="flex flex-col shrink-0 w-14">
-                        <span className="text-[9px] text-white/30 font-bold uppercase">Iter</span>
-                        <span className="text-base text-white font-black font-mono leading-none">
-                          {iteration}<span className="text-white/25 text-xs">/{runResult.iterations - 1}</span>
+                        <span className="text-[9px] text-[var(--text-dim)] font-bold uppercase">Iter</span>
+                        <span className="text-base text-[var(--foreground)] font-black font-mono leading-none">
+                          {iteration}<span className="text-[var(--text-dim)] text-xs">/{runResult.iterations - 1}</span>
                         </span>
                       </div>
                       <input type="range" min="0" max={runResult.iterations - 1} value={iteration}
                         onChange={e => { setIsPlaying(false); const n = parseInt(e.target.value); setIteration(n); if (!liveMode) fetchIteration(n); }}
-                        className="flex-1 accent-blue-500 h-1 rounded-full bg-white/10 cursor-pointer" />
+                        className="flex-1 accent-blue-500 h-1 rounded-full bg-[var(--border)] cursor-pointer" />
                       <div className="flex items-center gap-1 shrink-0">
                         <button onClick={() => { setIsPlaying(false); const n = Math.max(0, iteration-1); setIteration(n); if (!liveMode) fetchIteration(n); }}
-                          className="p-2 bg-white/5 hover:bg-white/10 rounded-lg border border-white/5 transition-all text-white/50 hover:text-white"><SkipBack size={15} /></button>
-                        <button onClick={togglePlay} className={`p-2.5 rounded-lg border transition-all ${isPlaying ? 'bg-blue-500/20 border-blue-500/30 text-blue-400' : 'bg-white/5 border-white/5 text-white/70 hover:bg-white/10 hover:text-white'}`}>
+                          className="p-2 bg-[var(--surface)] hover:bg-[var(--surface-hover)] rounded-lg border border-[var(--border)] transition-all text-[var(--text-dim)] hover:text-[var(--foreground)]"><SkipBack size={15} /></button>
+                        <button onClick={togglePlay} className={`p-2.5 rounded-lg border transition-all ${isPlaying ? 'bg-blue-500/20 border-blue-500/30 text-blue-400' : 'bg-[var(--surface)] border-[var(--border)] text-[var(--foreground)]/70 hover:bg-[var(--surface-hover)] hover:text-[var(--foreground)]'}`}>
                           {isPlaying ? <Pause size={15} /> : <Play size={15} />}
                         </button>
                         <button onClick={() => { setIsPlaying(false); const n = Math.min(runResult.iterations-1, iteration+1); setIteration(n); if (!liveMode) fetchIteration(n); }}
-                          className="p-2 bg-white/5 hover:bg-white/10 rounded-lg border border-white/5 transition-all text-white/50 hover:text-white"><SkipForward size={15} /></button>
+                          className="p-2 bg-[var(--surface)] hover:bg-[var(--surface-hover)] rounded-lg border border-[var(--border)] transition-all text-[var(--text-dim)] hover:text-[var(--foreground)]"><SkipForward size={15} /></button>
                       </div>
                       <select value={playSpeed} onChange={e => setPlaySpeed(parseInt(e.target.value))}
-                        className="bg-transparent text-white/50 text-[10px] font-bold border border-white/10 rounded-md px-1.5 py-1 cursor-pointer focus:outline-none hover:text-white transition-colors shrink-0">
+                        className="bg-transparent text-[var(--text-dim)] text-[10px] font-bold border border-[var(--border)] rounded-md px-1.5 py-1 cursor-pointer focus:outline-none hover:text-[var(--foreground)] transition-colors shrink-0">
                         <option value={1000}>Slow</option><option value={500}>Normal</option>
                         <option value={200}>Fast</option><option value={50}>Ultra</option>
                       </select>
@@ -494,6 +535,7 @@ function HomeContent() {
                     iterationData={iterationData}
                     onNodeClick={setSelectedNode}
                     onGraphLoaded={setGraphStats}
+                    theme={theme}
                   />
                 </div>
 
@@ -501,7 +543,7 @@ function HomeContent() {
                 {runResult && (
                   <button
                     onClick={() => setShowStats(s => !s)}
-                    className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border font-black text-[10px] uppercase tracking-widest transition-all w-fit ${showStats ? 'bg-purple-500/10 border-purple-500/20 text-purple-400' : 'bg-white/5 border-white/5 text-white/30 hover:text-white/60 hover:border-white/10'}`}
+                    className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border font-black text-[10px] uppercase tracking-widest transition-all w-fit ${showStats ? 'bg-purple-500/10 border-purple-500/20 text-purple-400' : 'bg-[var(--surface)] border-[var(--border)] text-[var(--text-dim)] hover:text-[var(--foreground)] hover:border-[var(--text-muted)]'}`}
                   >
                     <BarChart2 size={13} /> {showStats ? 'Hide Stats' : 'Show Graph Stats'}
                   </button>
@@ -520,19 +562,19 @@ function HomeContent() {
                 <div className="grid grid-cols-12 gap-6 h-[280px]">
                   <div className="col-span-8">
                     {runResult ? <PerformanceChart results={runResult} /> : (
-                      <div className="h-full bg-[#111] rounded-2xl border border-[#222] border-dashed flex flex-col items-center justify-center gap-3 text-white/10 transition-all">
+                      <div className="h-full bg-[var(--surface)] rounded-2xl border border-[var(--border)] border-dashed flex flex-col items-center justify-center gap-3 text-[var(--text-dim)] transition-all">
                         <Terminal size={32} />
                         <span className="text-xs font-bold uppercase tracking-widest">Execute simulation to view metrics</span>
                       </div>
                     )}
                   </div>
-                  <div className="col-span-4 bg-gradient-to-br from-[#111] to-[#1a1a1a] rounded-2xl border border-[#222] shadow-xl p-6 relative overflow-hidden flex flex-col justify-end group hover:border-blue-500/20 transition-all">
+                  <div className="col-span-4 bg-gradient-to-br from-[var(--surface)] to-[var(--surface-hover)] rounded-2xl border border-[var(--border)] shadow-xl p-6 relative overflow-hidden flex flex-col justify-end group hover:border-blue-500/20 transition-all">
                     <Zap size={100} className="absolute -top-6 -right-6 text-blue-600/5 rotate-12 group-hover:text-blue-600/10 transition-all" />
                     <span className="text-[10px] text-blue-500 font-black uppercase tracking-widest mb-1 block">Architecture Mode</span>
-                    <h2 className="text-4xl font-black tracking-tighter text-white uppercase">
+                    <h2 className="text-4xl font-black tracking-tighter text-[var(--foreground)] uppercase">
                       {runResult?.mode ? runResult.mode.replace('_', ' ') : 'N/A'}
                     </h2>
-                    <p className="text-[10px] text-[#555] font-bold leading-relaxed mt-2 uppercase tracking-tight">
+                    <p className="text-[10px] text-[var(--text-muted)] font-bold leading-relaxed mt-2 uppercase tracking-tight">
                       {liveMode ? '⚡ Live stream active' : 'Batch execution mode'}
                     </p>
                   </div>

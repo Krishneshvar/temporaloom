@@ -107,19 +107,19 @@ export default function BFSResult({ data, loading }) {
 
   if (loading) {
     return (
-      <div className="h-full bg-[#111] rounded-2xl border border-[#222] flex flex-col items-center justify-center p-8 min-h-[400px]">
+      <div className="h-full bg-[var(--surface)] rounded-2xl border border-[var(--border)] flex flex-col items-center justify-center p-8 min-h-[400px]">
         <div className="relative flex items-center justify-center">
           <div className="absolute w-20 h-20 rounded-full border-t-2 border-emerald-500 animate-spin" />
           <GitBranch size={28} className="text-emerald-500 animate-pulse" />
         </div>
-        <span className="mt-8 text-white/70 font-bold uppercase tracking-widest text-sm">Running Graph Traversal...</span>
+        <span className="mt-8 text-[var(--text-muted)] font-bold uppercase tracking-widest text-sm">Running Graph Traversal...</span>
       </div>
     );
   }
 
   if (!data) {
     return (
-      <div className="h-full bg-[#111] rounded-2xl border border-[#222] border-dashed flex flex-col items-center justify-center gap-3 text-white/10 min-h-[400px] hover:border-white/20 transition-all">
+      <div className="h-full bg-[var(--surface)] rounded-2xl border border-[var(--border)] border-dashed flex flex-col items-center justify-center gap-3 text-[var(--text-dim)] min-h-[400px] hover:border-[var(--text-muted)] transition-all">
         <GitBranch size={32} />
         <span className="text-xs font-bold uppercase tracking-widest">Run BFS to visualize traversal</span>
       </div>
@@ -136,23 +136,23 @@ export default function BFSResult({ data, loading }) {
           { label: 'Max Distance', value: data.max_distance ?? '—', color: 'text-purple-400' },
           { label: 'Time', value: `${(data.execution_time ?? 0).toFixed(4)}s`, color: 'text-amber-400' },
         ].map(s => (
-          <div key={s.label} className="p-4 bg-[#111] rounded-2xl border border-[#222] flex flex-col gap-1">
+          <div key={s.label} className="p-4 bg-[var(--surface)] rounded-2xl border border-[var(--border)] flex flex-col gap-1 shadow-xl">
             <span className={`text-[10px] font-black uppercase tracking-widest opacity-50 ${s.color}`}>{s.label}</span>
-            <span className="text-xl font-black font-mono tracking-tighter">{s.value}</span>
+            <span className="text-xl font-black font-mono tracking-tighter text-[var(--foreground)]">{s.value}</span>
           </div>
         ))}
       </div>
 
       {/* BFS Tree Visualization */}
-      <div ref={containerRef} className="bg-[#0a0a0a] rounded-2xl border border-[#222] overflow-hidden relative shadow-2xl">
-        <div className="p-4 border-b border-[#222] flex items-center justify-between">
+      <div ref={containerRef} className="bg-[var(--background)] rounded-2xl border border-[var(--border)] overflow-hidden relative shadow-2xl">
+        <div className="p-4 border-b border-[var(--border)] flex items-center justify-between">
           <div className="flex items-center gap-2">
             <GitBranch size={14} className="text-emerald-400" />
-            <span className="text-[10px] font-black uppercase tracking-widest text-[#555]">
+            <span className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)]">
               BFS Tree — Source: Node {data.source ?? 0} — {data.levels?.length ?? 0} Levels
             </span>
           </div>
-          <div className="flex gap-2 text-[10px] font-bold text-[#555]">
+          <div className="flex gap-2 text-[10px] font-bold text-[var(--text-muted)]">
             {data.processes && <span className="text-purple-400/60">{data.processes} MPI Processes</span>}
           </div>
         </div>
@@ -161,14 +161,14 @@ export default function BFSResult({ data, loading }) {
 
       {/* Level breakdown table */}
       {data.levels && data.levels.length > 0 && (
-        <div className="bg-[#111] rounded-2xl border border-[#222] overflow-hidden">
-          <div className="p-4 border-b border-[#222]">
-            <span className="text-[10px] font-black uppercase tracking-widest text-[#555]">Level Breakdown</span>
+        <div className="bg-[var(--surface)] rounded-2xl border border-[var(--border)] overflow-hidden shadow-xl">
+          <div className="p-4 border-b border-[var(--border)]">
+            <span className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)]">Level Breakdown</span>
           </div>
           <div className="overflow-x-auto max-h-[200px] overflow-y-auto">
             <table className="w-full text-xs font-mono">
-              <thead className="sticky top-0 bg-[#111]">
-                <tr className="text-[#555] text-[10px] uppercase tracking-widest border-b border-[#222]">
+              <thead className="sticky top-0 bg-[var(--surface)]">
+                <tr className="text-[var(--text-dim)] text-[10px] uppercase tracking-widest border-b border-[var(--border)]">
                   <th className="px-4 py-2 text-left">Distance</th>
                   <th className="px-4 py-2 text-left">Nodes at Level</th>
                   <th className="px-4 py-2 text-left">Sample IDs</th>
@@ -181,13 +181,13 @@ export default function BFSResult({ data, loading }) {
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     transition={{ delay: i * 0.03 }}
-                    className="border-b border-[#1a1a1a] hover:bg-white/5 transition-colors"
+                    className="border-b border-[var(--border)]/10 hover:bg-[var(--surface-hover)] transition-colors"
                   >
                     <td className="px-4 py-2">
                       <span className="text-emerald-400 font-black">{lvl.distance}</span>
                     </td>
-                    <td className="px-4 py-2 text-white/60">{lvl.node_ids.length.toLocaleString()}</td>
-                    <td className="px-4 py-2 text-white/40">
+                    <td className="px-4 py-2 text-[var(--text-dim)]">{lvl.node_ids.length.toLocaleString()}</td>
+                    <td className="px-4 py-2 text-[var(--text-muted)]">
                       {lvl.node_ids.slice(0, 8).join(', ')}{lvl.node_ids.length > 8 ? ' ...' : ''}
                     </td>
                   </motion.tr>

@@ -1,0 +1,50 @@
+[
+  {
+    "id": "1775659640119-apoe9gs",
+    "timestamp": "2026-04-08T14:47:20.119Z",
+    "startUrl": "https://crawler-test.com",
+    "maxDepth": 4,
+    "numNodes": 1016,
+    "numEdges": 3545
+  },
+  {
+    "id": "1775659639715-77kr2jb",
+    "timestamp": "2026-04-08T14:47:19.715Z",
+    "startUrl": "https://crawler-test.com",
+    "maxDepth": 4,
+    "numNodes": 1016,
+    "numEdges": 3545
+  },
+  {
+    "id": "1775659405487-yt7e503",
+    "timestamp": "2026-04-08T14:43:25.487Z",
+    "startUrl": "https://crawler-test.com",
+    "maxDepth": 2,
+    "numNodes": 1001,
+    "numEdges": 2552
+  },
+  {
+    "id": "1775659405270-yu4wq3u",
+    "timestamp": "2026-04-08T14:43:25.270Z",
+    "startUrl": "https://crawler-test.com",
+    "maxDepth": 2,
+    "numNodes": 1001,
+    "numEdges": 2552
+  },
+  {
+    "id": "1775659103210-0jal4lp",
+    "timestamp": "2026-04-08T14:38:23.210Z",
+    "startUrl": "https://crawler-test.com/",
+    "maxDepth": 2,
+    "numNodes": 1001,
+    "numEdges": 2551
+  },
+  {
+    "id": "1775659103098-xhlcesw",
+    "timestamp": "2026-04-08T14:38:23.098Z",
+    "startUrl": "https://crawler-test.com/",
+    "maxDepth": 2,
+    "numNodes": 1001,
+    "numEdges": 2551
+  }
+]

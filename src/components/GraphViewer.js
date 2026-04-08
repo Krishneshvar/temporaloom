@@ -144,11 +144,11 @@ export default function GraphViewer({ dataset, iterationData, onNodeClick, onGra
     const links = structure.links.map(l => ({ ...l }));
 
     const linkSel = g.append('g').selectAll('line').data(links).join('line')
-      .attr('stroke', '#2d3748').attr('stroke-opacity', 0.6).attr('stroke-width', 1);
+      .attr('stroke', theme === 'dark' ? '#2d3748' : '#e2e8f0').attr('stroke-opacity', 0.6).attr('stroke-width', 1);
 
     const nodeSel = g.append('g').selectAll('circle').data(nodes).join('circle')
       .attr('class', 'node-circle')
-      .attr('r', 7).attr('fill', '#3b82f6').attr('stroke', '#1e40af').attr('stroke-width', 1.5)
+      .attr('r', 7).attr('fill', theme === 'dark' ? '#3b82f6' : '#2563eb').attr('stroke', theme === 'dark' ? '#1e40af' : '#94a3b8').attr('stroke-width', 1.5)
       .attr('cursor', 'pointer')
       .on('mouseenter', (e, d) => {
         d3.select(e.currentTarget).transition().duration(150).attr('r', (d._r||7)*1.4).attr('stroke', '#60a5fa').attr('stroke-width', 2.5);
@@ -214,7 +214,7 @@ export default function GraphViewer({ dataset, iterationData, onNodeClick, onGra
   }, [onNodeClick]);
 
   return (
-    <div ref={containerRef} className="w-full bg-[#060606] rounded-2xl overflow-hidden shadow-2xl relative h-[500px]">
+    <div ref={containerRef} className="w-full bg-[var(--background)] rounded-2xl overflow-hidden shadow-2xl relative h-[500px]">
       <svg ref={svgRef} className="w-full h-full" />
 
       {/* Node Inspector (inline) */}
@@ -224,7 +224,7 @@ export default function GraphViewer({ dataset, iterationData, onNodeClick, onGra
       <div className="absolute top-4 right-4 flex gap-1">
         {LAYOUTS.map(l => (
           <button key={l.id} onClick={() => setLayout(l.id)} title={l.label}
-            className={`px-2.5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all border ${layout === l.id ? 'bg-blue-500/20 border-blue-500/40 text-blue-400' : 'bg-white/5 border-white/10 text-white/30 hover:text-white/60'}`}>
+            className={`px-2.5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all border ${layout === l.id ? 'bg-blue-500/20 border-blue-500/40 text-blue-400' : 'bg-[var(--surface-hover)] border-[var(--border)] text-[var(--text-dim)] hover:text-[var(--foreground)]'}`}>
             {l.icon} {l.label}
           </button>
         ))}
@@ -232,25 +232,25 @@ export default function GraphViewer({ dataset, iterationData, onNodeClick, onGra
 
       {/* Zoom Controls */}
       <div className="absolute bottom-16 right-4 flex flex-col gap-1">
-        <button onClick={() => zoomBy(1.5)} className="w-8 h-8 bg-white/10 hover:bg-white/20 active:scale-95 rounded-lg text-white text-lg font-bold flex items-center justify-center transition-all border border-white/10">+</button>
-        <button onClick={resetZoom}         className="w-8 h-8 bg-white/10 hover:bg-white/20 active:scale-95 rounded-lg text-white/60 text-[10px] font-bold flex items-center justify-center transition-all border border-white/10">FIT</button>
-        <button onClick={() => zoomBy(0.67)} className="w-8 h-8 bg-white/10 hover:bg-white/20 active:scale-95 rounded-lg text-white text-lg font-bold flex items-center justify-center transition-all border border-white/10">−</button>
+        <button onClick={() => zoomBy(1.5)} className="w-8 h-8 bg-[var(--surface-hover)] hover:bg-[var(--surface)] active:scale-95 rounded-lg text-[var(--foreground)] text-lg font-bold flex items-center justify-center transition-all border border-[var(--border)]">+</button>
+        <button onClick={resetZoom}         className="w-8 h-8 bg-[var(--surface-hover)] hover:bg-[var(--surface)] active:scale-95 rounded-lg text-[var(--text-dim)] text-[10px] font-bold flex items-center justify-center transition-all border border-[var(--border)]">FIT</button>
+        <button onClick={() => zoomBy(0.67)} className="w-8 h-8 bg-[var(--surface-hover)] hover:bg-[var(--surface)] active:scale-95 rounded-lg text-[var(--foreground)] text-lg font-bold flex items-center justify-center transition-all border border-[var(--border)]">−</button>
       </div>
 
       {/* Hover Tooltip */}
       {tooltip && (
-        <div className="absolute z-20 pointer-events-none bg-black/90 border border-white/10 rounded-xl px-3 py-2 text-[11px] font-mono shadow-2xl" style={{ left: tooltip.x + 12, top: tooltip.y - 10 }}>
-          <div className="text-white/40 text-[9px] uppercase tracking-widest mb-1">Node</div>
-          <div className="text-white font-black text-base leading-none">#{tooltip.id}</div>
-          <div className="text-blue-400 mt-1">PageRank: <span className="text-white">{(tooltip.rank||0).toFixed(6)}</span></div>
-          <div className="text-white/30 text-[9px] mt-0.5">Click to inspect</div>
+        <div className="absolute z-20 pointer-events-none bg-[var(--background)]/90 backdrop-blur-md border border-[var(--border)] rounded-xl px-3 py-2 text-[11px] font-mono shadow-2xl" style={{ left: tooltip.x + 12, top: tooltip.y - 10 }}>
+          <div className="text-[var(--text-dim)] text-[9px] uppercase tracking-widest mb-1">Node</div>
+          <div className="text-[var(--foreground)] font-black text-base leading-none">#{tooltip.id}</div>
+          <div className="text-blue-500 mt-1">PageRank: <span className="text-[var(--foreground)]">{(tooltip.rank||0).toFixed(6)}</span></div>
+          <div className="text-[var(--text-dim)] text-[9px] mt-0.5">Click to inspect</div>
         </div>
       )}
 
       {/* Empty state */}
       {!dataset && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <div className="flex flex-col items-center gap-3 text-white/10">
+          <div className="flex flex-col items-center gap-3 text-[var(--text-dim)]">
             <Layers size={40} />
             <span className="text-xs font-bold uppercase tracking-widest">No dataset loaded</span>
           </div>

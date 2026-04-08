@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef, Suspense } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Layers, Zap, Info, Binary, Terminal, GitBranch, Play, Pause,
@@ -16,6 +17,14 @@ import GraphStats     from '@/components/GraphStats';
 import RunHistory     from '@/components/RunHistory';
 
 export default function Home() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-black" />}>
+      <HomeContent />
+    </Suspense>
+  );
+}
+
+function HomeContent() {
   const [loading, setLoading]             = useState(false);
   const [status, setStatus]               = useState('');
   const [selectedDataset, setSelectedDataset] = useState('');
@@ -38,7 +47,9 @@ export default function Home() {
   const playIntervalRef = useRef(null);
 
   // BFS / SSSP
-  const [currentTab, setCurrentTab]       = useState('run');
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const [currentTab, setCurrentTab]       = useState(searchParams.get('tab') || 'run');
   const [benchmarkResult, setBenchmarkResult] = useState(null);
   const [bfsResult, setBfsResult]         = useState(null);
   const [ssspResult, setSsspResult]       = useState(null);
@@ -54,6 +65,17 @@ export default function Home() {
 
   // Stats tab in Run section
   const [showStats, setShowStats]         = useState(false);
+
+  // Sync tab with URL
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    if (tab && tab !== currentTab) setCurrentTab(tab);
+  }, [searchParams]);
+
+  const handleTabChange = (t) => {
+    setCurrentTab(t);
+    router.push(`/?tab=${t}`);
+  };
 
   // ── Iteration fetch (batch mode) ──────────────────────────────────────────
   const fetchIteration = useCallback(async (id) => {
@@ -330,7 +352,7 @@ export default function Home() {
                 onRun={handleRun} onBenchmark={handleBenchmark} onBFS={handleBFS}
                 onScrape={handleScrape} onSSP={handleSSP}
                 loading={loading} status={status}
-                currentTab={currentTab} setCurrentTab={setCurrentTab}
+                currentTab={currentTab} setCurrentTab={handleTabChange}
                 liveMode={liveMode}
                 minimized={(isScraping && currentTab === 'scrape') || isSidebarCollapsed}
               />

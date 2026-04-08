@@ -1,4 +1,5 @@
 import { buildGraphFromWeb } from '@/lib/scraper';
+import crawlManager from '@/lib/crawlManager';
 
 export async function POST(request) {
   try {
@@ -10,6 +11,9 @@ export async function POST(request) {
     
     const encoder = new TextEncoder();
     const abortController = new AbortController();
+
+    // Reset manager for new crawl
+    crawlManager.startCrawl('active', abortController);
 
     const stream = new ReadableStream({
       async start(controller) {
@@ -28,11 +32,13 @@ export async function POST(request) {
         } finally {
           try {
             controller.close();
+            crawlManager.stopCrawl();
           } catch (e) {}
         }
       },
       cancel() {
         abortController.abort();
+        crawlManager.stopCrawl();
       }
     });
 
@@ -43,6 +49,16 @@ export async function POST(request) {
         'Connection': 'keep-alive',
       },
     });
+  } catch (error) {
+    return new Response(JSON.stringify({ error: error.message }), { status: 500 });
+  }
+}
+
+export async function PATCH(request) {
+  try {
+    const settings = await request.json();
+    const success = crawlManager.updateSettings(settings);
+    return new Response(JSON.stringify({ success }), { status: success ? 200 : 404 });
   } catch (error) {
     return new Response(JSON.stringify({ error: error.message }), { status: 500 });
   }

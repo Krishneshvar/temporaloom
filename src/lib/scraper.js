@@ -11,6 +11,8 @@ import path from 'path';
  * - Filtering: Ignores non-HTML assets (images, PDFs, etc.)
  */
 
+import crawlManager from './crawlManager';
+
 // Common non-HTML extensions to skip
 const IGNORED_EXTENSIONS = new Set([
   '.jpg', '.jpeg', '.png', '.gif', '.svg', '.webp', '.ico',
@@ -19,14 +21,73 @@ const IGNORED_EXTENSIONS = new Set([
   '.css', '.js', '.map', '.json', '.xml'
 ]);
 
+/**
+ * PageRank helper for a simple adjacency list
+ */
+function computeLivePageRank(numNodes, edges, iterations = 3) {
+  if (numNodes === 0) return {};
+  let pr = new Array(numNodes).fill(1 / numNodes);
+  const damping = 0.85;
+
+  const adj = Array.from({ length: numNodes }, () => []);
+  const outDegree = new Array(numNodes).fill(0);
+
+  for (const edge of edges) {
+    const [u, v] = edge.split(' ').map(Number);
+    if (u < numNodes && v < numNodes) {
+      adj[u].push(v);
+      outDegree[u]++;
+    }
+  }
+
+  for (let iter = 0; iter < iterations; iter++) {
+    let nextPr = new Array(numNodes).fill((1 - damping) / numNodes);
+    for (let u = 0; u < numNodes; u++) {
+      if (outDegree[u] > 0) {
+        const share = (damping * pr[u]) / outDegree[u];
+        for (const v of adj[u]) {
+          nextPr[v] += share;
+        }
+      } else {
+        // Sink nodes distribute to everyone
+        const share = (damping * pr[u]) / numNodes;
+        for (let i = 0; i < numNodes; i++) {
+          nextPr[i] += share;
+        }
+      }
+    }
+    pr = nextPr;
+  }
+  
+  // Return as map for easy lookup
+  return Object.fromEntries(pr.map((val, i) => [i, val]));
+}
+
+/**
+ * Compute degree distribution for Power Law chart
+ */
+function computeDegreeDistribution(numNodes, edges) {
+  const degrees = new Array(numNodes).fill(0);
+  for (const edge of edges) {
+    const [u, v] = edge.split(' ').map(Number);
+    if (u < numNodes) degrees[u]++;
+  }
+  
+  const counts = {};
+  for (const d of degrees) {
+    counts[d] = (counts[d] || 0) + 1;
+  }
+  return counts;
+}
+
 export async function buildGraphFromWeb(startUrl, maxDepth, onUpdate = null, signal = null) {
   const urlMap = new Map();
   const edges = new Set();
   let nextId = 0;
   
   const startTime = Date.now();
-  const CRAWL_TIMEOUT_MS = 20000; 
-  const CONCURRENCY_LIMIT = 12; // Increased for high performance
+  const CRAWL_TIMEOUT_MS = 30000; // Increased to 30s for more complexity
+  let currentConcurrency = 12;
 
   const getId = (url) => {
     if (!urlMap.has(url)) {
@@ -68,15 +129,25 @@ export async function buildGraphFromWeb(startUrl, maxDepth, onUpdate = null, sig
     // Don't fetch if we've reached max depth (edges are added during the previous depth's scan)
     if (depth >= maxDepth) return;
 
-    if (onUpdate) onUpdate({ 
-      type: 'crawling', 
-      url, 
-      depth, 
-      nodes: nextId, 
-      edges: edges.size,
-      active: activeRequests,
-      workerId
-    });
+    if (onUpdate) {
+      const pageRank = computeLivePageRank(nextId, edges);
+      const degreeDist = computeDegreeDistribution(nextId, edges);
+
+      onUpdate({ 
+        type: 'crawling', 
+        url, 
+        depth, 
+        nodes: nextId, 
+        edges: edges.size,
+        active: activeRequests,
+        workerId,
+        pageRank,
+        analytics: {
+          degreeDist,
+          maxDegree: Math.max(...Object.keys(degreeDist).map(Number), 0)
+        }
+      });
+    }
 
     try {
       const resp = await axios.get(url, { 
@@ -140,42 +211,64 @@ export async function buildGraphFromWeb(startUrl, maxDepth, onUpdate = null, sig
     }
   }
 
-  const workers = [];
-  for (let i = 0; i < CONCURRENCY_LIMIT; i++) {
-    const workerId = i + 1;
-    workers.push((async () => {
-      while (true) {
-        if (signal?.aborted) break;
-        if (Date.now() - startTime >= CRAWL_TIMEOUT_MS) break;
+  const runWorker = async (workerId) => {
+    while (true) {
+      if (signal?.aborted) break;
+      if (Date.now() - startTime >= CRAWL_TIMEOUT_MS) break;
 
-        const task = queue.shift();
-        
-        if (!task) {
-          // If no tasks, wait if others are still working
-          if (activeRequests > 0) {
-            await Promise.race([
-              waitForTask(),
-              new Promise(r => setTimeout(r, 100)) // Safety timeout
-            ]);
-            continue;
-          } else {
-            // No tasks and no active requests -> we are completely done
-            break;
-          }
-        }
+      // Dynamic Concurrency Check
+      const targetConcurrency = crawlManager.getSettings().concurrency;
+      if (workerId > targetConcurrency) {
+        // Kill this worker if we requested a lower count
+        break;
+      }
 
-        activeRequests++;
-        try {
-          await processUrl(task, workerId);
-        } finally {
-          activeRequests--;
-          notifyTaskAvailable(); // Notify that a slot is free and we might be finished
+      const task = queue.shift();
+      
+      if (!task) {
+        if (activeRequests > 0) {
+          await Promise.race([waitForTask(), new Promise(r => setTimeout(r, 200))]);
+          continue;
+        } else {
+          break;
         }
       }
-    })());
-  }
+
+      activeRequests++;
+      try {
+        await processUrl(task, workerId);
+      } finally {
+        activeRequests--;
+        notifyTaskAvailable();
+      }
+    }
+  };
+
+  const workers = [];
+  const startWorkers = (start, end) => {
+    for (let i = start; i < end; i++) {
+      const workerId = i + 1;
+      workers.push(runWorker(workerId));
+    }
+  };
+
+  // Initial workers
+  startWorkers(0, currentConcurrency);
+
+  // Monitor concurrency while running
+  const monitorInterval = setInterval(() => {
+    const target = crawlManager.getSettings().concurrency;
+    if (target > currentConcurrency) {
+      // Spawn more workers
+      startWorkers(currentConcurrency, target);
+      currentConcurrency = target;
+    }
+    // We don't need to manually kill workers for lower concurrency; 
+    // the runWorker loop handles its own workerId check.
+  }, 1000);
 
   await Promise.all(workers);
+  clearInterval(monitorInterval);
 
   if (signal?.aborted) {
     if (onUpdate) onUpdate({ type: 'aborted' });

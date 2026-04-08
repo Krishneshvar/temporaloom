@@ -1,7 +1,7 @@
 'use client';
 
 import { motion, AnimatePresence } from 'framer-motion';
-import { Globe, Activity, Database, CheckCircle2, AlertTriangle, Loader2, Link2, XCircle, Cpu } from 'lucide-react';
+import { Globe, Activity, Database, CheckCircle2, AlertTriangle, Loader2, Link2, XCircle, Cpu, AlertCircle, Info, Hash, Search, X, Maximize2, GitBranch, Layout, TrendingUp } from 'lucide-react';
 import { useRef, useEffect, useMemo, useState } from 'react';
 import * as d3 from 'd3';
 
@@ -11,6 +11,11 @@ export default function ScrapeVisualizer({ events, isScraping, onStop }) {
   const logEndRef = useRef(null);
   const svgRef = useRef(null);
   const liveGraphRef = useRef({ nodes: new Map(), links: [], sim: null });
+  
+  const [selectedNode, setSelectedNode] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [concurrency, setConcurrency] = useState(12);
+  const [showDNA, setShowDNA] = useState(false);
 
   // Auto-scroll log
   useEffect(() => {
@@ -21,9 +26,10 @@ export default function ScrapeVisualizer({ events, isScraping, onStop }) {
   useEffect(() => {
     if (!svgRef.current) return;
     const W = svgRef.current.parentElement?.clientWidth || 500;
-    const H = 500;
+    const H = 640;
 
     const svg = d3.select(svgRef.current);
+    const colorScale = d3.scaleSequential(d3.interpolateViridis); // Heatmap scale
 
     if (svg.select('g').empty()) {
       svg.attr('viewBox', [0, 0, W, H]);
@@ -89,14 +95,32 @@ export default function ScrapeVisualizer({ events, isScraping, onStop }) {
       .data(nodesArr, d => d.id)
       .join('circle')
       .attr('class', 'live-node')
-      .attr('r', d => d.depth === 0 ? 9 : 5)
-      .attr('fill', d => depthScale(d.depth || 0))
-      .attr('stroke', '#0f172a')
-      .attr('stroke-width', 1)
+      .attr('stroke', d => selectedNode?.id === d.id ? '#fff' : '#0f172a')
+      .attr('stroke-width', d => selectedNode?.id === d.id ? 2 : 1)
+      .on('click', (e, d) => setSelectedNode(d))
       .call(d3.drag()
         .on('start', (e, d) => { if (!e.active) lg.sim.alphaTarget(0.3).restart(); d.fx = d.x; d.fy = d.y; })
         .on('drag', (e, d) => { d.fx = e.x; d.fy = e.y; })
         .on('end', (e, d) => { if (!e.active) lg.sim.alphaTarget(0); d.fx = null; d.fy = null; }));
+
+    // Heatmap Color Adjustment based on Live PageRank
+    const pageRank = latestEvent?.pageRank || {};
+    const maxPR = Math.max(...Object.values(pageRank), 0.0001);
+
+    nodeSel.transition().duration(500)
+      .attr('r', d => {
+        const base = d.depth === 0 ? 9 : 5;
+        const prBonus = pageRank[d.id] ? (pageRank[d.id] / maxPR) * 10 : 0;
+        return base + prBonus;
+      })
+      .attr('fill', d => {
+        const score = pageRank[d.id] || 0;
+        return colorScale(score / maxPR);
+      })
+      .attr('opacity', d => {
+        if (!searchQuery) return 1;
+        return d.id.toLowerCase().includes(searchQuery.toLowerCase()) ? 1 : 0.2;
+      });
 
     lg.sim.nodes(nodesArr).on('tick', () => {
       linkSel
@@ -140,8 +164,20 @@ export default function ScrapeVisualizer({ events, isScraping, onStop }) {
       edges: lastStatEvent?.edges || completeEvent?.data?.numEdges || 0,
       active: lastStatEvent?.active || 0,
       errors: events.filter(e => e.type === 'error').length,
+      analytics: lastStatEvent?.analytics || { degreeDist: {}, maxDegree: 0 }
     };
   }, [events]);
+
+  const handleConcurrencyChange = async (val) => {
+    setConcurrency(val);
+    try {
+      await fetch('/api/scrape', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ concurrency: val })
+      });
+    } catch (e) {}
+  };
 
   const currentUrl = events.findLast(e => e.type === 'crawling')?.url;
 
@@ -198,9 +234,10 @@ export default function ScrapeVisualizer({ events, isScraping, onStop }) {
         </div>
         
         <div className={`grid gap-4 transition-all duration-500 ${isScraping ? 'grid-cols-4 md:grid-cols-6 lg:grid-cols-12' : 'grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6'}`}>
-          {Array.from({ length: 12 }).map((_, i) => {
+          {Array.from({ length: 24 }).map((_, i) => {
             const id = i + 1;
             const worker = workerStatus[id];
+            if (id > (isScraping ? concurrency : 12)) return null;
             return (
               <div 
                 key={id} 
@@ -230,6 +267,33 @@ export default function ScrapeVisualizer({ events, isScraping, onStop }) {
             );
           })}
         </div>
+
+        {isScraping && (
+          <div className="mt-8 pt-6 border-t border-[#222] flex flex-col lg:flex-row lg:items-center gap-8 bg-black/20 p-4 rounded-2xl">
+            <div className="flex items-center gap-4 min-w-[300px]">
+              <div className="flex flex-col gap-1">
+                <span className="text-[10px] font-black text-white/40 uppercase tracking-widest">Dynamic Worker Scaling</span>
+                <span className="text-xl font-mono font-bold text-emerald-400">{concurrency} Threads</span>
+              </div>
+              <input 
+                type="range" min="1" max="24" value={concurrency} 
+                onChange={(e) => handleConcurrencyChange(parseInt(e.target.value))}
+                className="flex-1 accent-emerald-500 h-1.5 rounded-lg bg-[#222] cursor-pointer"
+              />
+            </div>
+            <div className="h-10 w-px bg-[#222] hidden lg:block" />
+            <div className="flex-1 flex flex-col gap-2">
+               <div className="flex items-center gap-2 text-[10px] font-black text-white/40 uppercase tracking-widest">
+                  <Search size={14} /> Search Topology
+               </div>
+               <input 
+                value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
+                placeholder="Find URL in graph..." 
+                className="bg-[#111] border border-[#222] p-3 rounded-xl focus:ring-1 focus:ring-emerald-500 outline-none text-xs text-white/80 w-full"
+               />
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Main two-panel area */}
@@ -285,20 +349,137 @@ export default function ScrapeVisualizer({ events, isScraping, onStop }) {
         <div className={`flex flex-col gap-4 transition-all duration-700 ${isScraping ? 'col-span-12 lg:col-span-8' : 'col-span-12 lg:col-span-5'}`}>
           <div className="flex-1 bg-[#080808] rounded-2xl border border-[#222] overflow-hidden relative shadow-2xl flex flex-col">
             <div className="p-4 border-b border-[#222] flex items-center justify-between">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-4">
                 <Globe size={14} className="text-purple-400" />
                 <span className="text-xs font-black uppercase tracking-widest text-[#666]">Live Topology Visualizer</span>
-              </div>
-              {isScraping && (
-                <div className="flex items-center gap-4 px-4 py-1.5 bg-white/5 rounded-full border border-white/5">
-                   <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-blue-500" /> <span className="text-[10px] font-black text-white/40 uppercase">NODES: {stats.nodes}</span></div>
-                   <div className="w-px h-3 bg-white/10" />
-                   <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-purple-500" /> <span className="text-[10px] font-black text-white/40 uppercase">EDGES: {stats.edges}</span></div>
+                <div className="bg-white/5 rounded-lg border border-white/10 p-1 flex items-center gap-1">
+                  <div className="w-12 h-2 bg-gradient-to-r from-purple-800 to-yellow-400 rounded-sm" />
+                  <span className="text-[8px] font-black text-white/40 uppercase">Heatmap (PageRank)</span>
                 </div>
-              )}
+              </div>
+              <div className="flex items-center gap-3">
+                <button 
+                  onClick={() => setShowDNA(!showDNA)}
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all border ${showDNA ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400' : 'bg-[#111] border-[#222] text-[#666] hover:text-white'}`}
+                >
+                  <TrendingUp size={12} /> Graph DNA
+                </button>
+                {isScraping && (
+                  <div className="flex items-center gap-4 px-4 py-1.5 bg-white/5 rounded-full border border-white/5">
+                    <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-blue-500" /> <span className="text-[10px] font-black text-white/40 uppercase">NODES: {stats.nodes}</span></div>
+                    <div className="w-px h-3 bg-white/10" />
+                    <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-purple-500" /> <span className="text-[10px] font-black text-white/40 uppercase">EDGES: {stats.edges}</span></div>
+                  </div>
+                )}
+              </div>
             </div>
-            <div className={`flex-1 relative transition-all duration-500 ${isScraping ? 'h-[600px]' : 'h-[400px]'}`}>
-              <svg ref={svgRef} className="w-full h-full cursor-move" />
+            
+            <div className={`flex-1 relative transition-all duration-500 ${isScraping ? 'h-[640px]' : 'h-[400px]'}`}>
+              <svg ref={svgRef} className="w-full h-full cursor-crosshair" />
+              
+              {/* Node Inspector Overlay */}
+              <AnimatePresence>
+                {selectedNode && (
+                  <motion.div 
+                    initial={{ x: 300, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: 300, opacity: 0 }}
+                    className="absolute right-4 top-4 bottom-4 w-72 bg-[#0a0a0a]/90 backdrop-blur-xl border border-white/10 rounded-2xl shadow-3xl p-6 overflow-hidden z-20 flex flex-col gap-6"
+                   >
+                    <div className="flex items-center justify-between border-b border-white/5 pb-4">
+                      <div className="flex items-center gap-2">
+                        <Maximize2 size={16} className="text-blue-400" />
+                        <span className="text-xs font-black uppercase tracking-widest text-white/80">Node Inspector</span>
+                      </div>
+                      <button onClick={() => setSelectedNode(null)} className="text-white/20 hover:text-white transition-colors">
+                        <X size={18} />
+                      </button>
+                    </div>
+
+                    <div className="flex flex-col gap-2">
+                       <span className="text-[10px] font-black text-white/30 uppercase tracking-tighter">Canonical Identity</span>
+                       <div className="text-xs font-mono text-emerald-400 break-all leading-relaxed p-3 bg-emerald-500/5 border border-emerald-500/10 rounded-xl">
+                         {selectedNode.url}
+                       </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="p-4 bg-white/5 border border-white/10 rounded-xl flex flex-col gap-1">
+                        <span className="text-[9px] font-black text-white/30 uppercase">Centrality</span>
+                        <span className="text-lg font-mono font-bold text-yellow-400">
+                          {((latestEvent?.pageRank?.[selectedNode.id] || 0) * 100).toFixed(2)}%
+                        </span>
+                      </div>
+                      <div className="p-4 bg-white/5 border border-white/10 rounded-xl flex flex-col gap-1">
+                        <span className="text-[9px] font-black text-white/30 uppercase">Neighbors</span>
+                        <span className="text-lg font-mono font-bold text-blue-400">
+                          {liveGraphRef.current.links.filter(l => l.source.id === selectedNode.id || l.target.id === selectedNode.id).length}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col gap-3">
+                       <span className="text-[10px] font-black text-white/30 uppercase tracking-widest flex items-center gap-2">
+                         <GitBranch size={12} /> Proximal Relations
+                       </span>
+                       <div className="h-48 overflow-y-auto custom-scrollbar flex flex-col gap-2">
+                          {liveGraphRef.current.links.filter(l => l.source.id === selectedNode.id || l.target.id === selectedNode.id).slice(0, 10).map((l, i) => {
+                            const neighbor = l.source.id === selectedNode.id ? l.target : l.source;
+                            return (
+                              <div key={i} className="flex items-center gap-2 p-2 bg-white/3 border border-white/5 rounded-lg">
+                                <span className={`text-[8px] font-black px-1.5 py-0.5 rounded ${l.source.id === selectedNode.id ? 'bg-blue-500/10 text-blue-400' : 'bg-purple-500/10 text-purple-400'}`}>
+                                  {l.source.id === selectedNode.id ? 'OUT' : 'IN'}
+                                </span>
+                                <span className="text-[9px] font-mono text-white/40 truncate flex-1">{neighbor.name}</span>
+                              </div>
+                            );
+                          })}
+                       </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* Graph DNA Overlay (Power Law Chart) */}
+              <AnimatePresence>
+                {showDNA && (
+                  <motion.div 
+                    initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
+                    className="absolute left-6 bottom-6 w-80 bg-black/80 backdrop-blur-xl border border-white/10 rounded-3xl p-6 z-20"
+                  >
+                    <div className="flex items-center gap-2 mb-6 border-b border-white/5 pb-4">
+                      <TrendingUp size={18} className="text-emerald-400" />
+                      <div className="flex flex-col">
+                        <span className="text-xs font-black uppercase text-white/80">Graph DNA Analysis</span>
+                        <span className="text-[8px] font-black text-white/20 uppercase tracking-widest">Live Power-Law Calculation</span>
+                      </div>
+                    </div>
+                    
+                    <div className="h-40 flex items-end gap-1.5 border-b border-white/10 pb-2">
+                       {Object.entries(stats.analytics.degreeDist).sort((a,b) => Number(a[0])-Number(b[0])).slice(0, 20).map(([degree, count]) => {
+                         const height = (count / stats.nodes) * 100;
+                         return (
+                           <div key={degree} className="flex-1 flex flex-col gap-1 items-center group">
+                             <div 
+                              className="w-full bg-emerald-500/40 border border-emerald-500/20 rounded-t-sm transition-all hover:bg-emerald-400" 
+                              style={{ height: `${Math.max(height * 2, 4)}%` }} 
+                             />
+                             <span className="text-[7px] text-white/20 font-black group-hover:text-emerald-400">{degree}</span>
+                           </div>
+                         );
+                       })}
+                    </div>
+                    <div className="mt-4 flex justify-between">
+                       <div className="flex flex-col">
+                         <span className="text-[8px] font-black text-white/20 uppercase leading-none">Topology Entropy</span>
+                         <span className="text-sm font-mono font-bold text-white/80">{(Math.log(stats.edges || 1) / Math.log(stats.nodes || 1)).toFixed(3)}</span>
+                       </div>
+                       <div className="flex flex-col items-end">
+                         <span className="text-[8px] font-black text-white/20 uppercase leading-none">Max Conn</span>
+                         <span className="text-sm font-mono font-bold text-emerald-400">{stats.analytics.maxDegree}</span>
+                       </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
               {stats.nodes === 0 && (
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                   <div className="flex flex-col items-center gap-2 text-white/10">

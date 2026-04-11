@@ -55,6 +55,7 @@ export default function PerformanceChart({ results }) {
             <Tooltip 
               cursor={{ fill: '#ffffff05' }}
               contentStyle={{ backgroundColor: '#1a1a1a', border: '1px solid #333', borderRadius: '12px', fontSize: '12px', color: '#fff' }}
+              itemStyle={{ color: '#fff' }}
             />
             <Bar dataKey="time" radius={[8, 8, 8, 8]} barSize={40}>
               {data.map((entry, index) => (

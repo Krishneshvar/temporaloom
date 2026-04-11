@@ -27,6 +27,9 @@ export async function POST(request) {
     } else if (mode === 'gpu_par') {
       cmd = './pagerank_cuda_par';
       args = [datasetPath, '-e', '-j'];
+    } else if (mode === 'cpu_omp') {
+      cmd = './pagerank_omp';
+      args = [datasetPath, '-e', '-j', '-t', (processes || 4).toString()];
     } else if (mode === 'cpu_par' || useMPI) {
       cmd = 'mpirun';
       args = ['--oversubscribe', '-np', (processes || 4).toString(), './pagerank_mpi', datasetPath, '-e', '-j'];

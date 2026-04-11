@@ -1,35 +1,92 @@
 [
   {
-    "id": "1775546111930-439g",
-    "timestamp": "2026-04-07T07:15:11.930Z",
+    "id": "1775878709155-qcov",
+    "timestamp": "2026-04-11T03:38:29.155Z",
     "dataset": "sf_20.txt",
-    "mode": "sequential",
-    "processes": 4,
+    "mode": "omp",
+    "processes": 16,
+    "threads": 16,
     "nodes": 20,
     "edges": 40,
     "iterations": 17,
-    "execution_time": 0.000613
+    "execution_time": 0.0096
   },
   {
-    "id": "1775546019992-hx9q",
-    "timestamp": "2026-04-07T07:13:39.992Z",
-    "dataset": "sample.txt",
-    "mode": "sequential",
-    "processes": 4,
-    "nodes": 6,
-    "edges": 8,
-    "iterations": 89,
-    "execution_time": 0.002937
+    "id": "1775878697381-5jlg",
+    "timestamp": "2026-04-11T03:38:17.381Z",
+    "dataset": "sf_20.txt",
+    "mode": "mpi",
+    "processes": 16,
+    "nodes": 20,
+    "edges": 40,
+    "iterations": 17,
+    "execution_time": 0.026979
   },
   {
-    "id": "1775545115448-g5k7",
-    "timestamp": "2026-04-07T06:58:35.448Z",
-    "dataset": "test_10.txt",
+    "id": "1775878681807-febf",
+    "timestamp": "2026-04-11T03:38:01.807Z",
+    "dataset": "sf_20.txt",
+    "mode": "sequential",
+    "processes": 16,
+    "nodes": 20,
+    "edges": 40,
+    "iterations": 17,
+    "execution_time": 0.001467
+  },
+  {
+    "id": "1775878648029-ebxw",
+    "timestamp": "2026-04-11T03:37:28.029Z",
+    "dataset": "sf_20.txt",
+    "mode": "sequential",
+    "processes": 16,
+    "nodes": 20,
+    "edges": 40,
+    "iterations": 17,
+    "execution_time": 0.000442
+  },
+  {
+    "id": "1775811547706-0re4",
+    "timestamp": "2026-04-10T08:59:07.706Z",
+    "dataset": "test_1000.txt",
+    "mode": "omp",
+    "processes": 8,
+    "threads": 8,
+    "nodes": 1000,
+    "edges": 4999,
+    "iterations": 17,
+    "execution_time": 0.009517
+  },
+  {
+    "id": "1775808994472-eu4e",
+    "timestamp": "2026-04-10T08:16:34.472Z",
+    "dataset": "test_1000.txt",
+    "mode": "sequential",
+    "processes": 8,
+    "nodes": 1000,
+    "edges": 4999,
+    "iterations": 17,
+    "execution_time": 0.009509
+  },
+  {
+    "id": "1775808988657-ngnp",
+    "timestamp": "2026-04-10T08:16:28.657Z",
+    "dataset": "test_1000.txt",
+    "mode": "mpi",
+    "processes": 8,
+    "nodes": 1000,
+    "edges": 4999,
+    "iterations": 17,
+    "execution_time": 0.024246
+  },
+  {
+    "id": "1775808952091-yvkq",
+    "timestamp": "2026-04-10T08:15:52.091Z",
+    "dataset": "test_1000.txt",
     "mode": "sequential",
     "processes": 4,
-    "nodes": 10,
-    "edges": 18,
-    "iterations": 24,
-    "execution_time": 0.000876
+    "nodes": 1000,
+    "edges": 4999,
+    "iterations": 17,
+    "execution_time": 0.006004
   }
 ]

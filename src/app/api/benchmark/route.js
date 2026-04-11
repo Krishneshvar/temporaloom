@@ -52,8 +52,11 @@ export async function POST(request) {
     // 1. CPU Sequential
     const cpuSeqRes = await runMode('./pagerank_seq', [datasetPath, '-j']);
     
-    // 2. CPU Parallel
+    // 2. CPU Parallel (MPI)
     const cpuParRes = await runMode('mpirun', ['--oversubscribe', '-np', procCount, './pagerank_mpi', datasetPath, '-j']);
+
+    // 2b. CPU Parallel (OpenMP)
+    const cpuOmpRes = await runMode('./pagerank_omp', [datasetPath, '-j', '-t', procCount]);
     
     // 3. GPU Sequential
     const gpuSeqRes = await runMode('./pagerank_cuda_seq', [datasetPath, '-j']);
@@ -64,6 +67,7 @@ export async function POST(request) {
     const results = [
       { id: 'cpu_seq', name: 'CPU Sequential', data: cpuSeqRes.data, error: cpuSeqRes.error },
       { id: 'cpu_par', name: 'CPU Parallel (MPI)', data: cpuParRes.data, error: cpuParRes.error },
+      { id: 'cpu_omp', name: 'CPU Parallel (OMP)', data: cpuOmpRes.data, error: cpuOmpRes.error },
       { id: 'gpu_seq', name: 'GPU Sequential', data: gpuSeqRes.data, error: gpuSeqRes.error },
       { id: 'gpu_par', name: 'GPU Parallel (CUDA)', data: gpuParRes.data, error: gpuParRes.error }
     ];

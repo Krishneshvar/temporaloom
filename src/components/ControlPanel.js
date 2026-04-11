@@ -15,9 +15,12 @@ export default function ControlPanel({ onRun, onBenchmark, onScrape, onBFS, onSS
   const [bfsSource, setBfsSource] = useState(0);
   const [sspSource, setSspSource] = useState(0);
   const [sspTarget, setSspTarget] = useState(1);
+  const [sspMode, setSspMode]     = useState('sssp_seq');
+  const [maxCores, setMaxCores]   = useState(8);
 
   useEffect(() => {
     fetch('/api/datasets').then(r => r.json()).then(d => { if (Array.isArray(d)) setDatasets(d); }).catch(() => {});
+    fetch('/api/system').then(r => r.json()).then(d => { if (d.cores) setMaxCores(d.cores); }).catch(() => {});
   }, []);
 
   const TABS = [
@@ -94,21 +97,24 @@ export default function ControlPanel({ onRun, onBenchmark, onScrape, onBFS, onSS
           <div className="flex items-center justify-between">
             <label className={labelCls}>{execMode.startsWith('cpu') ? <Cpu size={14} /> : <Zap size={14} />} Hardware</label>
             <div className="flex bg-[var(--background)] p-1 rounded-lg border border-[var(--border)]">
-              <button onClick={() => setExecMode(p => p.replace('gpu','cpu'))} className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${execMode.startsWith('cpu') ? 'bg-emerald-600 text-white shadow-lg' : 'text-[var(--text-dim)] hover:text-[var(--foreground)]'}`}>CPU</button>
-              <button onClick={() => setExecMode(p => p.replace('cpu','gpu'))} className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${execMode.startsWith('gpu') ? 'bg-blue-600 text-white shadow-lg' : 'text-[var(--text-dim)] hover:text-[var(--foreground)]'}`}>GPU</button>
+              <button onClick={() => setExecMode(execMode.endsWith('seq') ? 'cpu_seq' : (execMode === 'gpu_par' ? 'cpu_par' : execMode))} className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${execMode.startsWith('cpu') ? 'bg-emerald-600 text-white shadow-lg' : 'text-[var(--text-dim)] hover:text-[var(--foreground)]'}`}>CPU</button>
+              <button onClick={() => setExecMode(execMode.endsWith('seq') ? 'gpu_seq' : 'gpu_par')} className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${execMode.startsWith('gpu') ? 'bg-blue-600 text-white shadow-lg' : 'text-[var(--text-dim)] hover:text-[var(--foreground)]'}`}>GPU</button>
             </div>
           </div>
           <div className="flex items-center justify-between">
-            <label className={labelCls}>Topology</label>
+            <label className={labelCls}>Mode</label>
             <div className="flex bg-[var(--background)] p-1 rounded-lg border border-[var(--border)]">
-              <button onClick={() => setExecMode(p => p.replace('par','seq'))} className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${execMode.endsWith('seq') ? 'bg-[var(--surface-hover)] text-[var(--foreground)]' : 'text-[var(--text-dim)]'}`}>Seq</button>
-              <button onClick={() => setExecMode(p => p.replace('seq','par'))} className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${execMode.endsWith('par') ? 'bg-[var(--surface-hover)] text-[var(--foreground)]' : 'text-[var(--text-dim)]'}`}>Par</button>
+              <button onClick={() => setExecMode(execMode.startsWith('cpu') ? 'cpu_seq' : 'gpu_seq')} className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${execMode.endsWith('seq') ? 'bg-[var(--surface-hover)] text-[var(--foreground)]' : 'text-[var(--text-dim)]'}`}>Seq</button>
+              <button onClick={() => setExecMode(execMode.startsWith('cpu') ? 'cpu_par' : 'gpu_par')} className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${execMode.endsWith('par') ? 'bg-[var(--surface-hover)] text-[var(--foreground)]' : 'text-[var(--text-dim)]'}`}>MPI/CUDA</button>
+              {execMode.startsWith('cpu') && (
+                <button onClick={() => setExecMode('cpu_omp')} className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${execMode === 'cpu_omp' ? 'bg-[var(--surface-hover)] text-[var(--foreground)]' : 'text-[var(--text-dim)]'}`}>OMP</button>
+              )}
             </div>
           </div>
-          {execMode === 'cpu_par' && (
+          {(execMode === 'cpu_par' || execMode === 'cpu_omp') && (
             <div className="flex flex-col gap-1.5">
-              <div className="flex justify-between text-sm font-semibold"><span className="text-[var(--text-muted)]">MPI Processes</span><span className="text-emerald-400 font-black">{processes}</span></div>
-              <input type="range" min="1" max="8" value={processes} onChange={e => setProcesses(parseInt(e.target.value))} className="w-full h-1.5 rounded-lg bg-[var(--border)] accent-emerald-500" />
+              <div className="flex justify-between text-sm font-semibold"><span className="text-[var(--text-muted)]">Workers / Threads</span><span className="text-emerald-400 font-black">{processes}</span></div>
+              <input type="range" min="1" max={maxCores} value={processes} onChange={e => setProcesses(parseInt(e.target.value))} className="w-full h-1.5 rounded-lg bg-[var(--border)] accent-emerald-500" />
             </div>
           )}
         </div>
@@ -119,7 +125,7 @@ export default function ControlPanel({ onRun, onBenchmark, onScrape, onBFS, onSS
         <div className="pb-1 border-b border-[var(--border)] flex flex-col gap-3">
           <div className="flex flex-col gap-1.5">
             <div className="flex justify-between text-sm font-semibold"><span className="text-[var(--text-muted)]">MPI Processes</span><span className="text-emerald-400 font-black">{processes}</span></div>
-            <input type="range" min="1" max="8" value={processes} onChange={e => setProcesses(parseInt(e.target.value))} className="w-full h-1.5 rounded-lg bg-[var(--border)] accent-emerald-500" />
+            <input type="range" min="1" max={maxCores} value={processes} onChange={e => setProcesses(parseInt(e.target.value))} className="w-full h-1.5 rounded-lg bg-[var(--border)] accent-emerald-500" />
           </div>
           <p className="text-xs text-[var(--text-dim)] font-semibold leading-relaxed">Runs all 4 hardware modes and compares execution times.</p>
         </div>
@@ -134,13 +140,14 @@ export default function ControlPanel({ onRun, onBenchmark, onScrape, onBFS, onSS
               <label className={labelCls}>Mode</label>
               <div className="flex bg-[var(--background)] p-1 rounded-lg border border-[var(--border)]">
                 <button onClick={() => setBfsMode('bfs_seq')} className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${bfsMode === 'bfs_seq' ? 'bg-emerald-600 text-white' : 'text-[var(--text-dim)]'}`}>Seq</button>
-                <button onClick={() => setBfsMode('bfs_mpi')} className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${bfsMode === 'bfs_mpi' ? 'bg-blue-600 text-white' : 'text-[var(--text-dim)]'}`}>MPI</button>
+                <button onClick={() => setBfsMode('bfs_mpi')} className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${bfsMode === 'bfs_mpi' ? 'bg-emerald-600 text-white' : 'text-[var(--text-dim)]'}`}>MPI</button>
+                <button onClick={() => setBfsMode('bfs_omp')} className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${bfsMode === 'bfs_omp' ? 'bg-emerald-600 text-white' : 'text-[var(--text-dim)]'}`}>OMP</button>
               </div>
             </div>
-            {bfsMode === 'bfs_mpi' && (
+            {(bfsMode === 'bfs_mpi' || bfsMode === 'bfs_omp') && (
               <div className="flex flex-col gap-1.5">
-                <div className="flex justify-between text-sm font-semibold"><span className="text-[var(--text-muted)]">Processes</span><span className="text-blue-400 font-black">{bfsProcesses}</span></div>
-                <input type="range" min="1" max="8" value={bfsProcesses} onChange={e => setBfsProcesses(parseInt(e.target.value))} className="w-full h-1.5 rounded-lg bg-[var(--border)] accent-blue-500" />
+                <div className="flex justify-between text-sm font-semibold"><span className="text-[var(--text-muted)]">Workers / Threads</span><span className="text-blue-400 font-black">{bfsProcesses}</span></div>
+                <input type="range" min="1" max={maxCores} value={bfsProcesses} onChange={e => setBfsProcesses(parseInt(e.target.value))} className="w-full h-1.5 rounded-lg bg-[var(--border)] accent-blue-500" />
               </div>
             )}
             <div className="flex flex-col gap-1.5">
@@ -151,6 +158,15 @@ export default function ControlPanel({ onRun, onBenchmark, onScrape, onBFS, onSS
 
           <div className="flex flex-col gap-3 pt-3 border-t border-[var(--border)]">
             <span className="text-xs text-[var(--text-dim)] font-black uppercase tracking-widest flex items-center gap-1.5"><GitMerge size={12} /> SSSP — Shortest Path</span>
+            
+            <div className="flex items-center justify-between">
+              <label className={labelCls}>Mode</label>
+              <div className="flex bg-[var(--background)] p-1 rounded-lg border border-[var(--border)]">
+                <button onClick={() => setSspMode('sssp_seq')} className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${sspMode === 'sssp_seq' ? 'bg-purple-600 text-white' : 'text-[var(--text-dim)]'}`}>Seq</button>
+                <button onClick={() => setSspMode('sssp_omp')} className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${sspMode === 'sssp_omp' ? 'bg-purple-600 text-white' : 'text-[var(--text-dim)]'}`}>OMP</button>
+              </div>
+            </div>
+
             <div className="grid grid-cols-2 gap-2.5">
               <div className="flex flex-col gap-1.5">
                 <label className="text-sm text-[var(--text-muted)] font-semibold">From</label>
@@ -204,7 +220,7 @@ export default function ControlPanel({ onRun, onBenchmark, onScrape, onBFS, onSS
             {loading ? <Activity className="animate-spin" size={16} /> : <GitBranch size={16} />}
             {loading ? 'Traversing...' : 'Run BFS'}
           </button>
-          <button onClick={() => onSSP?.({ dataset, source: sspSource, target: sspTarget })} disabled={loading || !dataset}
+          <button onClick={() => onSSP?.({ dataset, source: sspSource, target: sspTarget, mode: sspMode, processes: bfsProcesses })} disabled={loading || !dataset}
             className="bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-500 hover:to-violet-500 disabled:opacity-30 disabled:cursor-not-allowed text-white p-3.5 rounded-xl font-bold flex items-center justify-center gap-2.5 shadow-lg active:scale-95 transition-all text-sm">
             {loading ? <Activity className="animate-spin" size={16} /> : <GitMerge size={16} />}
             {loading ? 'Tracing...' : `Find Path ${sspSource} → ${sspTarget}`}

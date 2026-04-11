@@ -17,6 +17,7 @@ export async function POST(request) {
   let cmd, args;
   if (mode === 'gpu_seq')      { cmd = './pagerank_cuda_seq'; args = [datasetPath, '-e', '-j']; }
   else if (mode === 'gpu_par') { cmd = './pagerank_cuda_par'; args = [datasetPath, '-e', '-j']; }
+  else if (mode === 'cpu_omp') { cmd = './pagerank_omp'; args = [datasetPath, '-e', '-j', '-t', String(processes ?? 4)]; }
   else if (mode === 'cpu_par') { cmd = 'mpirun'; args = ['--oversubscribe', '-np', String(processes ?? 4), './pagerank_mpi', datasetPath, '-e', '-j']; }
   else                         { cmd = './pagerank_seq'; args = [datasetPath, '-e', '-j']; }
 

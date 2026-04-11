@@ -67,6 +67,8 @@ export async function POST(request) {
         '--oversubscribe', '-np', procCount,
         './bfs_mpi', datasetPath, '-j', '-s', sourceNode
       ]);
+    } else if (mode === 'bfs_omp') {
+      result = await runBFS('./bfs_omp', [datasetPath, '-j', '-s', sourceNode, '-t', procCount]);
     } else {
       result = await runBFS('./bfs_seq', [datasetPath, '-j', '-s', sourceNode]);
     }

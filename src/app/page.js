@@ -37,6 +37,7 @@ function HomeContent() {
   const [iteration, setIteration]         = useState(0);
   const [iterationData, setIterationData] = useState(null);
   const [liveMode, setLiveMode]           = useState(true);
+  const [visualizeMode, setVisualizeMode] = useState(true);
   const [liveIterCount, setLiveIterCount] = useState(0);
   const liveReaderRef = useRef(null);
 
@@ -131,7 +132,7 @@ function HomeContent() {
         const res = await fetch('/api/run/stream', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ dataset, mode, processes }),
+          body: JSON.stringify({ dataset, mode, processes, visualize: visualizeMode }),
         });
         if (!res.ok) { setStatus('Stream error'); setLoading(false); return; }
 
@@ -178,7 +179,7 @@ function HomeContent() {
       try {
         const res = await fetch('/api/run', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ dataset, mode, processes }),
+          body: JSON.stringify({ dataset, mode, processes, visualize: visualizeMode }),
         });
         const data = await res.json();
         if (data.success) {
@@ -335,10 +336,18 @@ function HomeContent() {
           </div>
           <div className="w-px h-7 bg-[var(--border)]" />
           <div className="flex flex-col gap-0.5">
+            <span className="text-[10px] text-[var(--text-muted)] font-black uppercase tracking-widest">Visualize</span>
+            <button onClick={() => setVisualizeMode(p => !p)} className={`flex items-center gap-1.5 text-xs font-bold transition-colors ${visualizeMode ? 'text-purple-400' : 'text-[var(--text-dim)]'}`}>
+              <Binary size={12} className={visualizeMode ? 'animate-pulse' : ''} />
+              {visualizeMode ? 'On' : 'Off'}
+            </button>
+          </div>
+          <div className="w-px h-7 bg-[var(--border)]" />
+          <div className="flex flex-col gap-0.5">
             <span className="text-[10px] text-[var(--text-muted)] font-black uppercase tracking-widest">Live Stream</span>
-            <button onClick={() => setLiveMode(p => !p)} className={`flex items-center gap-1.5 text-xs font-bold transition-colors ${liveMode ? 'text-blue-400' : 'text-[var(--text-dim)]'}`}>
-              <Radio size={12} className={liveMode ? 'animate-pulse' : ''} />
-              {liveMode ? 'On' : 'Off'}
+            <button onClick={() => setLiveMode(p => !p)} disabled={!visualizeMode} className={`flex items-center gap-1.5 text-xs font-bold transition-colors ${!visualizeMode ? 'opacity-30 cursor-not-allowed' : (liveMode ? 'text-blue-400' : 'text-[var(--text-dim)]')}`}>
+              <Radio size={12} className={liveMode && visualizeMode ? 'animate-pulse' : ''} />
+              {liveMode && visualizeMode ? 'On' : 'Off'}
             </button>
           </div>
           <div className="w-px h-7 bg-[var(--border)]" />
@@ -499,12 +508,12 @@ function HomeContent() {
                     <div className="p-2.5 bg-blue-500/10 rounded-xl border border-blue-500/20 text-blue-400"><Binary size={18} /></div>
                     <div className="flex flex-col">
                       <span className="text-[11px] text-[var(--text-muted)] font-black uppercase tracking-widest">Graph Simulation</span>
-                      <span className="text-sm text-[var(--foreground)] font-bold">{selectedDataset || 'Waiting...'}</span>
+                      <span className="text-sm text-[var(--foreground)] font-bold">{visualizeMode ? (selectedDataset || 'Waiting...') : 'Visualization Disabled'}</span>
                     </div>
                   </div>
 
                   {/* Iteration controls */}
-                  {runResult && (
+                  {runResult && visualizeMode && (
                     <div className="absolute bottom-6 left-6 right-6 z-10 flex items-center gap-5 bg-[var(--background)]/85 backdrop-blur-xl p-4 rounded-2xl border border-[var(--border)] shadow-xl">
                       <div className="flex flex-col shrink-0 w-16">
                         <span className="text-[9px] text-[var(--text-dim)] font-bold uppercase">Iter</span>
@@ -532,13 +541,20 @@ function HomeContent() {
                     </div>
                   )}
 
-                  <GraphViewer
-                    dataset={selectedDataset}
-                    iterationData={iterationData}
-                    onNodeClick={setSelectedNode}
-                    onGraphLoaded={setGraphStats}
-                    theme={theme}
-                  />
+                  {visualizeMode ? (
+                    <GraphViewer
+                      dataset={selectedDataset}
+                      iterationData={iterationData}
+                      onNodeClick={setSelectedNode}
+                      onGraphLoaded={setGraphStats}
+                      theme={theme}
+                    />
+                  ) : (
+                    <div className="w-full h-[500px] flex items-center justify-center flex-col gap-4 text-[var(--text-dim)] bg-[var(--background)]/30 rounded-2xl">
+                      <Binary size={48} className="opacity-20" />
+                      <span className="text-sm font-bold uppercase tracking-widest text-[#555]">Visualization Graph Disabled to save resources</span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Stats toggle */}

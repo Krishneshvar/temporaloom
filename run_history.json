@@ -1,5 +1,84 @@
 [
   {
+    "id": "1775880096776-agzj",
+    "timestamp": "2026-04-11T04:01:36.776Z",
+    "dataset": "test_150k.txt",
+    "mode": "mpi",
+    "processes": 16,
+    "nodes": 150000,
+    "edges": 1499990,
+    "iterations": 13,
+    "execution_time": 1.24082
+  },
+  {
+    "id": "1775880087185-hsmn",
+    "timestamp": "2026-04-11T04:01:27.185Z",
+    "dataset": "test_150k.txt",
+    "mode": "omp",
+    "processes": 16,
+    "threads": 16,
+    "nodes": 150000,
+    "edges": 1499990,
+    "iterations": 13,
+    "execution_time": 0.493566
+  },
+  {
+    "id": "1775880079715-lm8p",
+    "timestamp": "2026-04-11T04:01:19.715Z",
+    "dataset": "test_150k.txt",
+    "mode": "sequential",
+    "processes": 16,
+    "nodes": 150000,
+    "edges": 1499990,
+    "iterations": 13,
+    "execution_time": 0.431888
+  },
+  {
+    "id": "1775880056739-j7u2",
+    "timestamp": "2026-04-11T04:00:56.739Z",
+    "dataset": "test_50k.txt",
+    "mode": "sequential",
+    "processes": 16,
+    "nodes": 50000,
+    "edges": 499990,
+    "iterations": 13,
+    "execution_time": 0.130823
+  },
+  {
+    "id": "1775880051110-6ch8",
+    "timestamp": "2026-04-11T04:00:51.110Z",
+    "dataset": "test_50k.txt",
+    "mode": "omp",
+    "processes": 16,
+    "threads": 16,
+    "nodes": 50000,
+    "edges": 499990,
+    "iterations": 13,
+    "execution_time": 0.175802
+  },
+  {
+    "id": "1775880045940-wgg6",
+    "timestamp": "2026-04-11T04:00:45.940Z",
+    "dataset": "test_50k.txt",
+    "mode": "mpi",
+    "processes": 16,
+    "nodes": 50000,
+    "edges": 499990,
+    "iterations": 13,
+    "execution_time": 0.547115
+  },
+  {
+    "id": "1775880035171-v4zs",
+    "timestamp": "2026-04-11T04:00:35.171Z",
+    "dataset": "test_50k.txt",
+    "mode": "sequential",
+    "processes": 4,
+    "nodes": 50000,
+    "edges": 499990,
+    "iterations": 13,
+    "execution_time": 0.138395
+  },
+  {
     "id": "1775878709155-qcov",
     "timestamp": "2026-04-11T03:38:29.155Z",
     "dataset": "sf_20.txt",

@@ -214,11 +214,11 @@ function HomeContent() {
   };
 
   // ── Benchmark ─────────────────────────────────────────────────────────────
-  const handleBenchmark = async ({ dataset, processes }) => {
+  const handleBenchmark = async ({ dataset, processes, target }) => {
     setLoading(true); setStatus('Running benchmark suite...');
     setSelectedDataset(dataset); setBenchmarkResult(null);
     try {
-      const res = await fetch('/api/benchmark', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ dataset, processes }) });
+      const res = await fetch('/api/benchmark', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ dataset, processes, target }) });
       const data = await res.json();
       if (data.success) { setBenchmarkResult(data.results); setStatus('Benchmark complete.'); }
       else setStatus(`Error: ${data.error}`);

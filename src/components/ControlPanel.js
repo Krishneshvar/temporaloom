@@ -17,6 +17,7 @@ export default function ControlPanel({ onRun, onBenchmark, onScrape, onBFS, onSS
   const [sspTarget, setSspTarget] = useState(1);
   const [sspMode, setSspMode]     = useState('sssp_seq');
   const [maxCores, setMaxCores]   = useState(8);
+  const [benchmarkTarget, setBenchmarkTarget] = useState('all');
 
   useEffect(() => {
     fetch('/api/datasets').then(r => r.json()).then(d => { if (Array.isArray(d)) setDatasets(d); }).catch(() => {});
@@ -34,7 +35,7 @@ export default function ControlPanel({ onRun, onBenchmark, onScrape, onBFS, onSS
     const activeTab = TABS.find(t => t.id === currentTab) || TABS[0];
     const getAction = () => {
       if (currentTab === 'run') return { icon: <Play size={18} />, onClick: () => onRun({ dataset, mode: execMode, processes }), color: 'bg-blue-600 hover:bg-blue-500', title: 'Run Simulation' };
-      if (currentTab === 'benchmark') return { icon: <BarChart3 size={18} />, onClick: () => onBenchmark({ dataset, processes }), color: 'bg-emerald-600 hover:bg-emerald-500', title: 'Start Benchmark' };
+      if (currentTab === 'benchmark') return { icon: <BarChart3 size={18} />, onClick: () => onBenchmark({ dataset, processes, target: benchmarkTarget }), color: 'bg-emerald-600 hover:bg-emerald-500', title: 'Start Benchmark' };
       if (currentTab === 'bfs') return { icon: <GitBranch size={18} />, onClick: () => onBFS?.({ dataset, mode: bfsMode, processes: bfsProcesses, source: bfsSource }), color: 'bg-emerald-600 hover:bg-emerald-500', title: 'Run BFS' };
       return { icon: <Search size={18} />, onClick: () => onScrape({ startUrl: scrapeUrl, maxDepth }), color: 'bg-purple-600 hover:bg-purple-500', title: 'Generate Graph' };
     };
@@ -122,12 +123,22 @@ export default function ControlPanel({ onRun, onBenchmark, onScrape, onBFS, onSS
 
       {/* BENCHMARK */}
       {currentTab === 'benchmark' && (
-        <div className="pb-1 border-b border-[var(--border)] flex flex-col gap-3">
-          <div className="flex flex-col gap-1.5">
-            <div className="flex justify-between text-sm font-semibold"><span className="text-[var(--text-muted)]">MPI Processes</span><span className="text-emerald-400 font-black">{processes}</span></div>
-            <input type="range" min="1" max={maxCores} value={processes} onChange={e => setProcesses(parseInt(e.target.value))} className="w-full h-1.5 rounded-lg bg-[var(--border)] accent-emerald-500" />
+        <div className="pb-1 border-b border-[var(--border)] flex flex-col gap-4">
+          <div className="flex items-center justify-between">
+            <label className={labelCls}>Target</label>
+            <div className="flex bg-[var(--background)] p-1 rounded-lg border border-[var(--border)]">
+              <button onClick={() => setBenchmarkTarget('all')} className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${benchmarkTarget === 'all' ? 'bg-[var(--surface-hover)] text-[var(--foreground)]' : 'text-[var(--text-dim)] hover:text-[var(--foreground)]'}`}>All Run</button>
+              <button onClick={() => setBenchmarkTarget('cpu')} className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${benchmarkTarget === 'cpu' ? 'bg-emerald-600 text-white' : 'text-[var(--text-dim)] hover:text-[var(--foreground)]'}`}>CPU Only</button>
+              <button onClick={() => setBenchmarkTarget('gpu')} className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${benchmarkTarget === 'gpu' ? 'bg-blue-600 text-white' : 'text-[var(--text-dim)] hover:text-[var(--foreground)]'}`}>GPU Only</button>
+            </div>
           </div>
-          <p className="text-xs text-[var(--text-dim)] font-semibold leading-relaxed">Runs all 4 hardware modes and compares execution times.</p>
+          {(benchmarkTarget === 'all' || benchmarkTarget === 'cpu') && (
+            <div className="flex flex-col gap-1.5">
+              <div className="flex justify-between text-sm font-semibold"><span className="text-[var(--text-muted)]">Workers / Threads</span><span className="text-emerald-400 font-black">{processes}</span></div>
+              <input type="range" min="1" max={maxCores} value={processes} onChange={e => setProcesses(parseInt(e.target.value))} className="w-full h-1.5 rounded-lg bg-[var(--border)] accent-emerald-500" />
+            </div>
+          )}
+          <p className="text-xs text-[var(--text-dim)] font-semibold leading-relaxed">Runs selected hardware modes and compares execution times.</p>
         </div>
       )}
 
@@ -206,7 +217,7 @@ export default function ControlPanel({ onRun, onBenchmark, onScrape, onBFS, onSS
       )}
 
       {currentTab === 'benchmark' && (
-        <button onClick={() => onBenchmark({ dataset, processes })} disabled={loading || !dataset}
+        <button onClick={() => onBenchmark({ dataset, processes, target: benchmarkTarget })} disabled={loading || !dataset}
           className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 disabled:opacity-30 disabled:cursor-not-allowed text-white p-4 rounded-xl font-bold flex items-center justify-center gap-2.5 shadow-lg active:scale-95 transition-all text-sm">
           {loading ? <Activity className="animate-spin" size={18} /> : <BarChart3 size={18} />}
           {loading ? 'Benchmarking...' : 'Start Benchmark'}

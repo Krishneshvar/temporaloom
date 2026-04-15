@@ -48,6 +48,20 @@ export default function BenchmarkChart({ data, loading }) {
             const percentage = hasError ? 0 : (execTime / maxTime) * 100;
             const isGpu = result.id.startsWith('gpu');
             
+            let speedupStr = null;
+            if (!hasError && (result.id.endsWith('_par') || result.id.endsWith('_omp'))) {
+               const seqId = isGpu ? 'gpu_seq' : 'cpu_seq';
+               const seqData = data.find(d => d.id === seqId && !d.error);
+               if (seqData) {
+                  const seqTime = seqData.data.execution_time;
+                  if (seqTime > 0 && execTime > 0) {
+                     const fasterPct = ((seqTime - execTime) / seqTime) * 100;
+                     if (fasterPct >= 0) speedupStr = `+${fasterPct.toFixed(1)}% Faster`;
+                     else speedupStr = `${Math.abs(fasterPct).toFixed(1)}% Slower`;
+                  }
+               }
+            }
+            
             return (
               <div key={result.id} className="flex flex-col gap-2">
                  <div className="flex justify-between items-end">
@@ -55,9 +69,16 @@ export default function BenchmarkChart({ data, loading }) {
                        {isGpu ? <Zap size={14} className="text-blue-400" /> : <Cpu size={14} className="text-emerald-400" />}
                        {result.name}
                     </span>
-                    <span className={`text-xs font-mono font-bold ${hasError ? 'text-red-400' : 'text-white/50'}`}>
-                       {hasError ? 'FAILED' : `${execTime.toFixed(4)}s`}
-                    </span>
+                    <div className="flex items-center gap-3">
+                       {speedupStr && (
+                          <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md ${speedupStr.includes('+') ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20'}`}>
+                            {speedupStr}
+                          </span>
+                       )}
+                       <span className={`text-xs font-mono font-bold ${hasError ? 'text-red-400' : 'text-white/50'}`}>
+                          {hasError ? 'FAILED' : `${execTime.toFixed(4)}s`}
+                       </span>
+                    </div>
                  </div>
                  
                  <div className="w-full bg-[#222] h-4 rounded-full overflow-hidden relative">
@@ -81,7 +102,7 @@ export default function BenchmarkChart({ data, loading }) {
        </div>
 
        {/* Quick metric callout */}
-       {data.every(d => !d.error) && data.length === 4 && (
+       {data.every(d => !d.error) && data.length > 2 && (
          <div className="mt-8 p-4 bg-[#1a1a1a] rounded-xl border border-[#333] flex justify-between items-center">
             <div className="flex flex-col">
                <span className="text-[10px] text-[#555] uppercase font-bold tracking-widest">Top Performer</span>

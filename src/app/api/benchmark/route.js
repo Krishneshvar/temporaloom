@@ -38,7 +38,7 @@ const runMode = (cmd, args) => {
 
 export async function POST(request) {
   try {
-    const { dataset, processes } = await request.json();
+    const { dataset, processes, target = 'all' } = await request.json();
     
     if (!dataset) {
       return NextResponse.json({ error: 'Dataset is required' }, { status: 400 });
@@ -48,29 +48,27 @@ export async function POST(request) {
     cleanResultsDir();
 
     const procCount = (processes || 4).toString();
+    const results = [];
 
-    // 1. CPU Sequential
-    const cpuSeqRes = await runMode('./pagerank_seq', [datasetPath, '-j']);
+    if (target === 'all' || target === 'cpu') {
+      const cpuSeqRes = await runMode('./pagerank_seq', [datasetPath, '-j']);
+      const cpuParRes = await runMode('mpirun', ['--oversubscribe', '-np', procCount, './pagerank_mpi', datasetPath, '-j']);
+      const cpuOmpRes = await runMode('./pagerank_omp', [datasetPath, '-j', '-t', procCount]);
+      results.push(
+        { id: 'cpu_seq', name: 'CPU Sequential', data: cpuSeqRes.data, error: cpuSeqRes.error },
+        { id: 'cpu_par', name: 'CPU Parallel (MPI)', data: cpuParRes.data, error: cpuParRes.error },
+        { id: 'cpu_omp', name: 'CPU Parallel (OMP)', data: cpuOmpRes.data, error: cpuOmpRes.error }
+      );
+    }
     
-    // 2. CPU Parallel (MPI)
-    const cpuParRes = await runMode('mpirun', ['--oversubscribe', '-np', procCount, './pagerank_mpi', datasetPath, '-j']);
-
-    // 2b. CPU Parallel (OpenMP)
-    const cpuOmpRes = await runMode('./pagerank_omp', [datasetPath, '-j', '-t', procCount]);
-    
-    // 3. GPU Sequential
-    const gpuSeqRes = await runMode('./pagerank_cuda_seq', [datasetPath, '-j']);
-    
-    // 4. GPU Parallel
-    const gpuParRes = await runMode('./pagerank_cuda_par', [datasetPath, '-j']);
-
-    const results = [
-      { id: 'cpu_seq', name: 'CPU Sequential', data: cpuSeqRes.data, error: cpuSeqRes.error },
-      { id: 'cpu_par', name: 'CPU Parallel (MPI)', data: cpuParRes.data, error: cpuParRes.error },
-      { id: 'cpu_omp', name: 'CPU Parallel (OMP)', data: cpuOmpRes.data, error: cpuOmpRes.error },
-      { id: 'gpu_seq', name: 'GPU Sequential', data: gpuSeqRes.data, error: gpuSeqRes.error },
-      { id: 'gpu_par', name: 'GPU Parallel (CUDA)', data: gpuParRes.data, error: gpuParRes.error }
-    ];
+    if (target === 'all' || target === 'gpu') {
+      const gpuSeqRes = await runMode('./pagerank_cuda_seq', [datasetPath, '-j']);
+      const gpuParRes = await runMode('./pagerank_cuda_par', [datasetPath, '-j']);
+      results.push(
+        { id: 'gpu_seq', name: 'GPU Sequential', data: gpuSeqRes.data, error: gpuSeqRes.error },
+        { id: 'gpu_par', name: 'GPU Parallel (CUDA)', data: gpuParRes.data, error: gpuParRes.error }
+      );
+    }
 
     return NextResponse.json({ success: true, results });
 

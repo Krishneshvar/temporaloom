@@ -33,23 +33,23 @@ export default function GraphStats({ runResult, iterationData, graphStats }) {
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: i * 0.06 }}
-            className="p-4 bg-[#111] rounded-2xl border border-[#222] hover:border-white/10 transition-all"
+            className="p-4 bg-[var(--surface)] rounded-2xl border border-[var(--border)] hover:border-[var(--text-muted)] transition-all shadow-xl"
           >
             <div className={`flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest opacity-40 mb-2 ${s.color}`}>
               {s.icon}{s.label}
             </div>
-            <div className="text-2xl font-black font-mono tracking-tighter">{s.value}</div>
-            {s.sub && <div className="text-[10px] text-white/25 font-semibold mt-0.5">{s.sub}</div>}
+            <div className="text-2xl font-black font-mono tracking-tighter text-[var(--foreground)]">{s.value}</div>
+            {s.sub && <div className="text-[10px] text-[var(--text-dim)] font-semibold mt-0.5">{s.sub}</div>}
           </motion.div>
         ))}
       </div>
 
       {/* Top-10 PageRank leaderboard */}
       {top10.length > 0 && (
-        <div className="bg-[#111] rounded-2xl border border-[#222] overflow-hidden">
-          <div className="px-5 py-4 border-b border-[#1e1e1e] flex items-center gap-2">
+        <div className="bg-[var(--surface)] rounded-2xl border border-[var(--border)] overflow-hidden shadow-xl">
+          <div className="px-5 py-4 border-b border-[var(--border)] flex items-center gap-2">
             <Trophy size={14} className="text-amber-400" />
-            <span className="text-[10px] font-black uppercase tracking-widest text-[#555]">
+            <span className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)]">
               Top-10 Nodes by PageRank — Iteration {iterationData?.iteration ?? '?'}
             </span>
           </div>
@@ -64,11 +64,11 @@ export default function GraphStats({ runResult, iterationData, graphStats }) {
                   transition={{ delay: i * 0.04 }}
                   className="flex items-center gap-3 group"
                 >
-                  <span className={`text-[10px] font-black font-mono w-4 shrink-0 ${i === 0 ? 'text-amber-400' : i === 1 ? 'text-slate-400' : i === 2 ? 'text-orange-600' : 'text-white/20'}`}>
+                  <span className={`text-[10px] font-black font-mono w-4 shrink-0 ${i === 0 ? 'text-amber-400' : i === 1 ? 'text-slate-400' : i === 2 ? 'text-orange-600' : 'text-[var(--text-dim)]'}`}>
                     {i + 1}
                   </span>
-                  <span className="text-[11px] font-mono text-white/60 shrink-0 w-10">#{node.id}</span>
-                  <div className="flex-1 h-1.5 bg-white/5 rounded-full overflow-hidden">
+                  <span className="text-[11px] font-mono text-[var(--text-muted)] shrink-0 w-10">#{node.id}</span>
+                  <div className="flex-1 h-1.5 bg-[var(--border)] rounded-full overflow-hidden">
                     <motion.div
                       className="h-full bg-gradient-to-r from-blue-600 to-indigo-500 rounded-full"
                       initial={{ width: 0 }}
@@ -88,10 +88,10 @@ export default function GraphStats({ runResult, iterationData, graphStats }) {
 
       {/* Degree distribution mini-chart */}
       {graphStats?.degreeDistribution && graphStats.degreeDistribution.length > 0 && (
-        <div className="bg-[#111] rounded-2xl border border-[#222] overflow-hidden">
-          <div className="px-5 py-4 border-b border-[#1e1e1e] flex items-center gap-2">
+        <div className="bg-[var(--surface)] rounded-2xl border border-[var(--border)] overflow-hidden shadow-xl">
+          <div className="px-5 py-4 border-b border-[var(--border)] flex items-center gap-2">
             <BarChart2 size={14} className="text-purple-400" />
-            <span className="text-[10px] font-black uppercase tracking-widest text-[#555]">Out-Degree Distribution</span>
+            <span className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)]">Out-Degree Distribution</span>
           </div>
           <div className="p-4">
             <DegreeBar data={graphStats.degreeDistribution} />
@@ -118,7 +118,7 @@ function DegreeBar({ data }) {
               transition={{ delay: i * 0.02, duration: 0.3, ease: 'easeOut', origin: 'bottom' }}
             />
             {data.length <= 15 && (
-              <span className="text-[8px] text-white/20 font-mono">{d.degree}</span>
+              <span className="text-[8px] text-[var(--text-dim)] font-mono">{d.degree}</span>
             )}
           </div>
         );

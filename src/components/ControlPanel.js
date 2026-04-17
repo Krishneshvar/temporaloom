@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { Play, Activity, Cpu, Database, Settings2, Globe, Search, BarChart3, Zap, GitBranch, GitMerge } from 'lucide-react';
 
 export default function ControlPanel({ onRun, onBenchmark, onScrape, onBFS, onSSP, loading, status, currentTab, setCurrentTab, liveMode, minimized = false, dataset, setDataset }) {
@@ -88,7 +89,7 @@ export default function ControlPanel({ onRun, onBenchmark, onScrape, onBFS, onSS
             <option value="">Select a topology graph...</option>
             {datasets.map(d => <option key={d} value={d} className="bg-[var(--surface)]">{d}</option>)}
           </select>
-          <a href="/datasets" className="text-xs text-blue-500 hover:text-blue-400 font-bold transition-colors uppercase tracking-tight">+ Ingest Custom Data</a>
+          <Link href="/datasets" className="text-xs text-blue-500 hover:text-blue-400 font-bold transition-colors uppercase tracking-tight">+ Ingest Custom Data</Link>
         </div>
       )}
 

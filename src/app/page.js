@@ -18,6 +18,7 @@ import BFSResult      from '@/components/BFSResult';
 import GraphStats     from '@/components/GraphStats';
 import RunHistory     from '@/components/RunHistory';
 import ScrapeHistory  from '@/components/ScrapeHistory';
+import Link           from 'next/link';
 
 export default function Home() {
   return (
@@ -353,7 +354,7 @@ function HomeContent() {
           <div className="w-px h-7 bg-[var(--border)]" />
           <div className="flex flex-col">
             <span className="text-[10px] text-[var(--text-muted)] font-black uppercase tracking-widest">Datasets</span>
-            <a href="/datasets" className="text-xs text-blue-400 hover:text-blue-300 font-bold transition-colors">Open Manager →</a>
+            <Link href="/datasets" className="text-xs text-blue-400 hover:text-blue-300 font-bold transition-colors">Open Manager →</Link>
           </div>
           {status && (
             <>
@@ -522,7 +523,9 @@ function HomeContent() {
                         </span>
                       </div>
                       <input type="range" min="0" max={runResult.iterations - 1} value={iteration}
-                        onChange={e => { setIsPlaying(false); const n = parseInt(e.target.value); setIteration(n); if (!liveMode) fetchIteration(n); }}
+                        onChange={e => { setIsPlaying(false); setIteration(parseInt(e.target.value)); }}
+                        onMouseUp={e => { if (!liveMode) fetchIteration(parseInt(e.target.value)); }}
+                        onTouchEnd={e => { if (!liveMode) fetchIteration(parseInt(e.target.value)); }}
                         className="flex-1 accent-blue-500 h-1.5 rounded-full bg-[var(--border)] cursor-pointer" />
                       <div className="flex items-center gap-1.5 shrink-0">
                         <button onClick={() => { setIsPlaying(false); const n = Math.max(0, iteration-1); setIteration(n); if (!liveMode) fetchIteration(n); }}

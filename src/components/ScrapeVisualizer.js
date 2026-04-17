@@ -543,7 +543,7 @@ function StatCard({ icon, label, value, color }) {
 
 function EventLine({ event }) {
   const workerBadge = event.workerId ? (
-    <span className="shrink-0 scale-90 origin-left bg-white/5 border border-white/10 px-2 py-0.5 rounded text-[9px] font-black text-white/40 group-hover:text-white/60 transition-colors uppercase tracking-tight">
+    <span className="shrink-0 scale-90 origin-left bg-[var(--foreground)]/5 border border-[var(--border)] px-2 py-0.5 rounded text-[9px] font-black text-[var(--text-dim)] group-hover:text-[var(--foreground)]/60 transition-colors uppercase tracking-tight">
       W#{event.workerId}
     </span>
   ) : null;
@@ -553,14 +553,14 @@ function EventLine({ event }) {
       return (
         <span className="text-blue-400 flex items-center gap-2">
           {workerBadge}
-          <span>[FETCH] <span className="text-white/50">Depth {event.depth}</span> → {event.url}</span>
+          <span>[FETCH] <span className="text-[var(--foreground)]/50">Depth {event.depth}</span> → {event.url}</span>
         </span>
       );
     case 'finished':
       return (
         <span className="text-emerald-500 flex items-center gap-2">
           {workerBadge}
-          <span>[OK] <span className="text-white/50">+{event.found} edges</span> ← {event.url}</span>
+          <span>[OK] <span className="text-[var(--foreground)]/50">+{event.found} edges</span> ← {event.url}</span>
         </span>
       );
     case 'error':

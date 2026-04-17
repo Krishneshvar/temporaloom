@@ -1,5 +1,16 @@
 [
   {
+    "id": "1776449934115-awig",
+    "timestamp": "2026-04-17T18:18:54.115Z",
+    "dataset": "test_1000.txt",
+    "mode": "sequential",
+    "processes": 4,
+    "nodes": 1000,
+    "edges": 4999,
+    "iterations": 17,
+    "execution_time": 0.00463
+  },
+  {
     "id": "1776448141365-almp",
     "timestamp": "2026-04-17T17:49:01.365Z",
     "dataset": "test_500k.txt",

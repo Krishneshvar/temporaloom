@@ -251,11 +251,18 @@ export default function ControlPanel({ onRun, onBenchmark, onScrape, onBFS, onSS
 
       {/* Action Buttons */}
       {currentTab === 'run' && (
-        <button onClick={() => onRun({ dataset, mode: execMode, processes })} disabled={loading || !dataset}
-          className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 disabled:opacity-30 disabled:cursor-not-allowed text-white p-4 rounded-xl font-bold flex items-center justify-center gap-2.5 shadow-lg hover:shadow-blue-500/20 active:scale-95 transition-all text-sm">
-          {loading ? <Activity className="animate-spin" size={18} /> : <Play size={18} />}
-          {loading ? 'Running...' : 'Run Simulation'}
-        </button>
+        <div className="flex flex-col gap-2">
+          <button onClick={() => onRun({ dataset, mode: execMode, processes })} disabled={loading || !dataset}
+            className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 disabled:opacity-30 disabled:cursor-not-allowed text-white p-4 rounded-xl font-bold flex items-center justify-center gap-2.5 shadow-lg hover:shadow-blue-500/20 active:scale-95 transition-all text-sm">
+            {loading ? <Activity className="animate-spin" size={18} /> : <Play size={18} />}
+            {loading ? 'Running...' : 'Run Simulation'}
+          </button>
+          <button onClick={() => onRun({ dataset, mode: 'compare', processes })} disabled={loading || !dataset}
+            className="bg-gradient-to-r from-purple-600 to-fuchsia-600 hover:from-purple-500 hover:to-fuchsia-500 disabled:opacity-30 disabled:cursor-not-allowed text-white p-3 rounded-xl font-black uppercase tracking-widest flex items-center justify-center gap-2.5 shadow-lg active:scale-95 transition-all text-[10px]">
+            {loading ? <Activity className="animate-spin" size={14} /> : <Zap size={14} />}
+            Run Comparative Bench
+          </button>
+        </div>
       )}
 
       {currentTab === 'benchmark' && (

@@ -1,10 +1,12 @@
 'use client';
 
 import { motion, AnimatePresence } from 'framer-motion';
-import { Globe, Activity, Database, CheckCircle2, AlertTriangle, Loader2, Link2, XCircle, Cpu, AlertCircle, Info, Hash, Search, X, Maximize2, GitBranch, Layout, TrendingUp } from 'lucide-react';
+import { Globe, Activity, Database, CheckCircle2, AlertTriangle, Loader2, Link2, XCircle, Cpu, AlertCircle, Info, Hash, Search, X, Maximize2, GitBranch, Layout, TrendingUp, Table, Share2, BarChart3 } from 'lucide-react';
 import { useRef, useEffect, useMemo, useState } from 'react';
 import * as d3 from 'd3';
 import { useTheme } from '@/components/ThemeProvider';
+import ScrapeDataTable from './ScrapeDataTable';
+import ScrapePerformance from './ScrapePerformance';
 
 const MAX_LOG_EVENTS = 300; // cap to prevent RAM explosion
 
@@ -20,11 +22,25 @@ export default function ScrapeVisualizer({ events, isScraping, onStop }) {
   const [concurrency, setConcurrency] = useState(12);
   const [showDNA, setShowDNA] = useState(false);
   const [isFullScreen, setIsFullScreen] = useState(false);
+  const [viewMode, setViewMode] = useState('graph'); // 'graph' | 'table' | 'analysis'
+  const [latencies, setLatencies] = useState({}); // Tracking start times
 
   // Auto-scroll log (restricted to log container)
   useEffect(() => {
     if (logContainerRef.current) {
       logContainerRef.current.scrollTop = logContainerRef.current.scrollHeight;
+    }
+
+    // Update latencies
+    const latest = events[events.length - 1];
+    if (latest?.type === 'crawling') {
+      setLatencies(prev => ({ ...prev, [latest.url]: Date.now() }));
+    } else if (latest?.type === 'finished' || latest?.type === 'error') {
+      const startTime = latencies[latest.url];
+      if (startTime) {
+        const duration = Date.now() - startTime;
+        latest.latency = duration;
+      }
     }
   }, [events]);
 
@@ -363,12 +379,36 @@ export default function ScrapeVisualizer({ events, isScraping, onStop }) {
               <div className="flex items-center gap-4">
                 <Globe size={14} className="text-purple-400" />
                 <span className="text-xs font-black uppercase tracking-widest text-[var(--text-muted)]">
-                  {isFullScreen ? 'Topology Deep-Dive' : 'Live Topology Visualizer'}
+                  {viewMode === 'graph' ? (isFullScreen ? 'Topology Deep-Dive' : 'Live Topology Visualizer') : 'Tabular Topology Data'}
                 </span>
-                <div className="bg-[var(--surface)] rounded-lg border border-[var(--border)] p-1 flex items-center gap-1">
-                  <div className="w-12 h-2 bg-gradient-to-r from-purple-800 to-yellow-400 rounded-sm" />
-                  <span className="text-[8px] font-black text-[var(--text-dim)] uppercase">Heatmap (PageRank)</span>
+                
+                <div className="flex bg-[var(--surface-hover)] p-1 rounded-lg border border-[var(--border)] ml-4">
+                  <button 
+                    onClick={() => setViewMode('graph')}
+                    className={`px-3 py-1 rounded-md text-[10px] font-black uppercase transition-all flex items-center gap-2 ${viewMode === 'graph' ? 'bg-blue-600 text-white shadow-lg' : 'text-[var(--text-dim)] hover:text-[var(--foreground)]'}`}
+                  >
+                    <Share2 size={12} /> Graph
+                  </button>
+                  <button 
+                    onClick={() => setViewMode('table')}
+                    className={`px-3 py-1 rounded-md text-[10px] font-black uppercase transition-all flex items-center gap-2 ${viewMode === 'table' ? 'bg-blue-600 text-white shadow-lg' : 'text-[var(--text-dim)] hover:text-[var(--foreground)]'}`}
+                  >
+                    <Table size={12} /> Table
+                  </button>
+                  <button 
+                    onClick={() => setViewMode('analysis')}
+                    className={`px-3 py-1 rounded-md text-[10px] font-black uppercase transition-all flex items-center gap-2 ${viewMode === 'analysis' ? 'bg-blue-600 text-white shadow-lg' : 'text-[var(--text-dim)] hover:text-[var(--foreground)]'}`}
+                  >
+                    <BarChart3 size={12} /> Analytics
+                  </button>
                 </div>
+
+                {viewMode === 'graph' && (
+                  <div className="bg-[var(--surface)] rounded-lg border border-[var(--border)] p-1 flex items-center gap-1">
+                    <div className="w-12 h-2 bg-gradient-to-r from-purple-800 to-yellow-400 rounded-sm" />
+                    <span className="text-[8px] font-black text-[var(--text-dim)] uppercase">Heatmap (PageRank)</span>
+                  </div>
+                )}
               </div>
               <div className="flex items-center gap-3">
                 <div className="flex items-center gap-2">
@@ -396,8 +436,10 @@ export default function ScrapeVisualizer({ events, isScraping, onStop }) {
               </div>
             </div>
             
-            <div className="flex-1 relative transition-all duration-500 min-h-[400px]">
-              <svg ref={svgRef} className="w-full h-full cursor-crosshair" />
+            <div className={`flex-1 relative transition-all duration-500 ${viewMode === 'graph' ? 'min-h-[400px]' : 'bg-[var(--background)]'}`}>
+              {viewMode === 'graph' && <svg ref={svgRef} className="w-full h-full cursor-crosshair" />}
+              {viewMode === 'table' && <ScrapeDataTable events={events} />}
+              {viewMode === 'analysis' && <ScrapePerformance events={events} isScraping={isScraping} />}
               
               {/* Node Inspector Overlay */}
               <AnimatePresence>

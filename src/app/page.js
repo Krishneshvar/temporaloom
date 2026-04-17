@@ -18,6 +18,7 @@ import BFSResult      from '@/components/BFSResult';
 import GraphStats     from '@/components/GraphStats';
 import RunHistory     from '@/components/RunHistory';
 import ScrapeHistory  from '@/components/ScrapeHistory';
+import ComparisonDashboard from '@/components/ComparisonDashboard';
 import Link           from 'next/link';
 
 export default function Home() {
@@ -41,6 +42,8 @@ function HomeContent() {
   const [visualizeMode, setVisualizeMode] = useState(true);
   const [liveIterCount, setLiveIterCount] = useState(0);
   const liveReaderRef = useRef(null);
+  const [comparisons, setComparisons]     = useState({});
+  const compReadersRef = useRef([]);
 
   // Graph metadata
   const [graphStats, setGraphStats]       = useState(null);
@@ -55,6 +58,7 @@ function HomeContent() {
   const router = useRouter();
   const [currentTab, setCurrentTab]       = useState(searchParams.get('tab') || 'run');
   const [selectedDataset, setSelectedDataset] = useState(searchParams.get('dataset') || '');
+  const [pendingDataset, setPendingDataset]   = useState(searchParams.get('dataset') || '');
   const [benchmarkResult, setBenchmarkResult] = useState(null);
   const [bfsResult, setBfsResult]         = useState(null);
   const [ssspResult, setSsspResult]       = useState(null);
@@ -119,14 +123,80 @@ function HomeContent() {
 
   // ── Live streaming run ─────────────────────────────────────────────────────
   const handleRun = async ({ dataset, mode, processes }) => {
+    const targetDS = pendingDataset || dataset;
     setLoading(true);
     setStatus('Initializing simulation...');
-    setSelectedDataset(dataset);
+    setSelectedDataset(targetDS);
     setIteration(0);
     setIterationData(null);
     setRunResult(null);
     setIsPlaying(false);
     setLiveIterCount(0);
+    setComparisons({});
+    compReadersRef.current.forEach(r => r.cancel());
+    compReadersRef.current = [];
+
+    if (mode === 'compare') {
+      const modeConfigs = [
+        { mode: 'cpu_seq', processes: 1 },
+        { mode: 'cpu_par', processes: 2 },
+        { mode: 'cpu_par', processes: 4 },
+        { mode: 'cpu_par', processes: 8 },
+        { mode: 'cpu_omp', processes: 8 }
+      ];
+
+      // Reset comparisons
+      const initialComp = {};
+      modeConfigs.forEach(cfg => {
+        initialComp[`${cfg.mode}_${cfg.processes}`] = { status: 'running', iteration: 0, result: null };
+      });
+      setComparisons(initialComp);
+      setCurrentTab('run');
+
+      modeConfigs.forEach(async (cfg) => {
+        const id = `${cfg.mode}_${cfg.processes}`;
+        try {
+          const res = await fetch('/api/run/stream', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ dataset, mode: cfg.mode, processes: cfg.processes, visualize: false }),
+          });
+          if (!res.ok) throw new Error('Failed');
+          const reader = res.body.getReader();
+          compReadersRef.current.push(reader);
+          const decoder = new TextDecoder();
+          let buf = '';
+
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buf += decoder.decode(value, { stream: true });
+            const lines = buf.split('\n\n');
+            buf = lines.pop();
+            for (const line of lines) {
+              if (!line.startsWith('data: ')) continue;
+              const ev = JSON.parse(line.slice(6));
+              if (ev.type === 'iteration') {
+                setComparisons(prev => ({
+                  ...prev,
+                  [id]: { ...prev[id], iteration: ev.data.iteration, iterations: ev.data.iterations }
+                }));
+              }
+              if (ev.type === 'complete') {
+                setComparisons(prev => ({
+                  ...prev,
+                  [id]: { ...prev[id], status: 'complete', result: ev.data }
+                }));
+              }
+            }
+          }
+        } catch (e) {
+          setComparisons(prev => ({ ...prev, [id]: { ...prev[id], status: 'error' } }));
+        }
+      });
+      setLoading(false);
+      return;
+    }
 
     if (liveMode) {
       try {
@@ -248,11 +318,12 @@ function HomeContent() {
 
   // ── BFS ───────────────────────────────────────────────────────────────────
   const handleBFS = async ({ dataset, mode, processes, source }) => {
+    const targetDS = pendingDataset || dataset;
     setLoading(true); setBfsResult(null); setSsspResult(null); setShowSSSP(false);
-    setSelectedDataset(dataset);
+    setSelectedDataset(targetDS);
     setStatus(`Running BFS from node ${source}...`);
     try {
-      const res = await fetch('/api/bfs', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ dataset, mode, processes, source }) });
+      const res = await fetch('/api/bfs', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ dataset: targetDS, mode, processes, source }) });
       const data = await res.json();
       if (data.success) { setBfsResult(data.data); setStatus(`BFS done: ${data.data.reachable}/${data.data.nodes} reachable, max depth ${data.data.max_distance}`); }
       else setStatus(`BFS Error: ${data.error}`);
@@ -262,10 +333,11 @@ function HomeContent() {
 
   // ── SSSP ──────────────────────────────────────────────────────────────────
   const handleSSP = async ({ dataset, source, target }) => {
+    const targetDS = pendingDataset || dataset;
     setLoading(true); setSsspResult(null); setShowSSSP(true);
     setStatus(`Finding shortest path: ${source} → ${target}...`);
     try {
-      const res = await fetch('/api/sssp', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ dataset, source, target }) });
+      const res = await fetch('/api/sssp', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ dataset: targetDS, source, target }) });
       const data = await res.json();
       if (data.success) {
         setSsspResult(data.data);
@@ -412,8 +484,8 @@ function HomeContent() {
                 currentTab={currentTab} setCurrentTab={handleTabChange}
                 liveMode={liveMode}
                 minimized={sidebarMinimized}
-                dataset={selectedDataset}
-                setDataset={setSelectedDataset}
+                dataset={pendingDataset}
+                setDataset={setPendingDataset}
               />
             </div>
 
@@ -520,6 +592,11 @@ function HomeContent() {
                     </div>
                     <button onClick={stopLive} className="text-xs bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/15 px-4 py-1.5 rounded-lg font-bold uppercase">Stop</button>
                   </div>
+                )}
+
+                {/* Comparison Dashboard */}
+                {Object.keys(comparisons).length > 0 && (
+                  <ComparisonDashboard comparisons={comparisons} />
                 )}
 
                 {/* Graph viewer */}

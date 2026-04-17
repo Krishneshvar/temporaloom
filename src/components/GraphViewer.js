@@ -12,6 +12,8 @@ const LAYOUTS = [
   { id: 'radial',   label: 'Radial', icon: '✦' },
 ];
 
+const MAX_NODES_FOR_VISUAL = 8000;
+
 export default function GraphViewer({ dataset, iterationData, onNodeClick, onGraphLoaded }) {
   const { theme } = useTheme();
   const svgRef       = useRef(null);
@@ -25,6 +27,9 @@ export default function GraphViewer({ dataset, iterationData, onNodeClick, onGra
   const [layout, setLayout]      = useState('force');
   const [tooltip, setTooltip]    = useState(null);
   const [selected, setSelected]  = useState(null); // node shown in inspector
+  const [isLargeDataset, setIsLargeDataset] = useState(false);
+  const [showAnyway, setShowAnyway] = useState(false);
+  const [stats, setStats] = useState({ nodes: 0, edges: 0 });
 
   // ── Load graph structure ──────────────────────────────────────────────────
   useEffect(() => {
@@ -49,6 +54,19 @@ export default function GraphViewer({ dataset, iterationData, onNodeClick, onGra
         });
 
         rawLinksRef.current = links;
+
+        const numNodes = nodeSet.size;
+        const numEdges = links.length;
+        setStats({ nodes: numNodes, edges: numEdges });
+
+        if (numNodes > MAX_NODES_FOR_VISUAL && !showAnyway) {
+          setIsLargeDataset(true);
+          const avgDeg = numEdges / Math.max(numNodes, 1);
+          onGraphLoaded?.({ nodes: numNodes, edges: numEdges, avgDegree: parseFloat(avgDeg.toFixed(2)), degreeDistribution: [] });
+          return;
+        }
+
+        setIsLargeDataset(false);
 
         // Pre-compute in/out degree maps
         const outDeg = new Map();
@@ -84,7 +102,7 @@ export default function GraphViewer({ dataset, iterationData, onNodeClick, onGra
         setStructure({ nodes, links });
         onGraphLoaded?.({ nodes: nodes.length, edges: links.length, avgDegree: parseFloat(avgDeg.toFixed(2)), degreeDistribution });
       });
-  }, [dataset, onGraphLoaded]);
+  }, [dataset, onGraphLoaded, showAnyway]);
 
   // ── Zoom helpers ─────────────────────────────────────────────────────────
   const zoomBy    = useCallback((f) => { if (svgRef.current && zoomRef.current) d3.select(svgRef.current).transition().duration(300).call(zoomRef.current.scaleBy, f); }, []);
@@ -246,6 +264,37 @@ export default function GraphViewer({ dataset, iterationData, onNodeClick, onGra
           <div className="text-[var(--foreground)] font-black text-base leading-none">#{tooltip.id}</div>
           <div className="text-blue-500 mt-1">PageRank: <span className="text-[var(--foreground)]">{(tooltip.rank||0).toFixed(6)}</span></div>
           <div className="text-[var(--text-dim)] text-[9px] mt-0.5">Click to inspect</div>
+        </div>
+      )}
+
+      {/* Large Dataset Warning */}
+      {isLargeDataset && !showAnyway && (
+        <div className="absolute inset-0 z-30 bg-[var(--background)]/95 backdrop-blur-lg flex flex-col items-center justify-center p-8 text-center">
+           <div className="bg-amber-500/10 border border-amber-500/20 p-4 rounded-full mb-6 text-amber-500">
+             <Layers size={32} />
+           </div>
+           <h3 className="text-xl font-black text-[var(--foreground)] uppercase tracking-tight mb-2">High Density Graph Detected</h3>
+           <p className="max-w-md text-xs text-[var(--text-dim)] font-semibold leading-relaxed mb-8">
+             This dataset contains <span className="text-amber-400 font-bold">{stats.nodes.toLocaleString()} nodes</span> and <span className="text-amber-400 font-bold">{stats.edges.toLocaleString()} edges</span>. 
+             Attempting to visualize the full topology may cause your browser to stop responding.
+           </p>
+           
+           <div className="flex items-center gap-3">
+             <div className="flex flex-col items-center gap-1.5 p-4 px-6 bg-[var(--surface-hover)] rounded-2xl border border-[var(--border)]">
+                <span className="text-[10px] font-black text-[var(--text-dim)] uppercase tracking-widest leading-none">Status</span>
+                <span className="text-sm font-bold text-emerald-400 leading-none">Simulation Ready</span>
+             </div>
+             <button 
+                onClick={() => setShowAnyway(true)}
+                className="bg-gradient-to-r from-amber-600 to-orange-700 hover:from-amber-500 hover:to-orange-600 text-white px-8 py-3.5 rounded-2xl font-black uppercase tracking-widest text-[11px] shadow-lg active:scale-95 transition-all"
+             >
+               Visualize Anyway
+             </button>
+           </div>
+           
+           <p className="mt-8 text-[10px] text-[var(--text-muted)] italic font-medium">
+             Algorithms will still run at full speed in the background.
+           </p>
         </div>
       )}
 

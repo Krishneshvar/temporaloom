@@ -40,7 +40,6 @@ int main(int argc, char *argv[]) {
         if (strcmp(argv[i], "-e") == 0) export_iter = 1;
     }
 
-    // Every process loads the whole graph for now (simple partitioning)
     Graph *g = load_graph_from_file(argv[1]);
     if (!g) {
         MPI_Finalize();
@@ -55,7 +54,6 @@ int main(int argc, char *argv[]) {
     PRConfig config = {DAMPING, EPSILON, MAX_ITER};
     initialize_ranks(ranks, n);
 
-    // Simple uniform partitioning of nodes
     int nodes_per_proc = n / size;
     int start_node = rank * nodes_per_proc;
     int end_node = (rank == size - 1) ? n : start_node + nodes_per_proc;
@@ -69,18 +67,14 @@ int main(int argc, char *argv[]) {
         double local_dangling_sum = 0;
         double total_dangling_sum = 0;
 
-        // Reset local copy of new ranks
         for (int i = 0; i < n; i++) temp_new_ranks[i] = 0;
 
         compute_local_contributions(g, start_node, end_node, ranks, temp_new_ranks, &local_dangling_sum, config);
 
-        // Sum up local dangling contributions
         MPI_Allreduce(&local_dangling_sum, &total_dangling_sum, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
-        // Sum up partial new ranks into a global copy
         MPI_Allreduce(temp_new_ranks, new_ranks, n, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
-        // Update local PR vector using the global knowledge (every process now has the same info)
         double diff = apply_global_updates(ranks, new_ranks, n, total_dangling_sum, config);
 
         iter++;

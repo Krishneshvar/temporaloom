@@ -47,12 +47,9 @@ int main(int argc, char *argv[]) {
 
     int iter = 0;
     while (iter < config.max_iter) {
-        // Initial state or previous state
         if (export_iter) export_iteration(iter, n, ranks);
 
         double local_dangling_sum = 0;
-        
-        // Sequential doesn't need to split, so it processes the whole graph
         compute_local_contributions(g, 0, n, ranks, new_ranks, &local_dangling_sum, config);
         double diff = apply_global_updates(ranks, new_ranks, n, local_dangling_sum, config);
 

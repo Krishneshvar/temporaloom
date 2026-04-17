@@ -14,7 +14,7 @@ int main(int argc, char *argv[]) {
 
     int json_output = 0, source = 0, target = -1;
     int num_threads = omp_get_max_threads();
-    
+
     for (int i = 2; i < argc; i++) {
         if (!strcmp(argv[i], "-j"))                   json_output = 1;
         if (!strcmp(argv[i], "-s") && i+1<argc)       source = atoi(argv[++i]);
@@ -51,18 +51,18 @@ int main(int argc, char *argv[]) {
             for (int e = 0; e < g->nodes[v].out_degree; e++) {
                 int nb = g->nodes[v].edges[e];
                 if (__sync_bool_compare_and_swap(&dist[nb], INF, level + 1)) {
-                    parent[nb] = v; // race condition on parent doesn't break path, just might give different valid path
+                    parent[nb] = v;
                     int pos = __sync_fetch_and_add(&next_frontier_size, 1);
                     next_frontier[pos] = nb;
                 }
             }
         }
-        
+
         frontier_size = next_frontier_size;
         int *temp = frontier;
         frontier = next_frontier;
         next_frontier = temp;
-        
+
         level++;
     }
 

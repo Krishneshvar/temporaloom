@@ -35,7 +35,7 @@ int main(int argc, char *argv[]) {
         if (strcmp(argv[i], "-e") == 0) export_iter = 1;
         if (strcmp(argv[i], "-t") == 0 && i + 1 < argc) num_threads = atoi(argv[++i]);
     }
-    
+
     omp_set_num_threads(num_threads);
 
     Graph *g = load_graph_from_file(argv[1]);
@@ -46,7 +46,7 @@ int main(int argc, char *argv[]) {
     double *new_ranks = (double*)malloc(n * sizeof(double));
 
     PRConfig config = {DAMPING, EPSILON, MAX_ITER};
-    
+
     #pragma omp parallel for
     for (int i = 0; i < n; i++) {
         ranks[i] = 1.0 / n;
@@ -59,16 +59,12 @@ int main(int argc, char *argv[]) {
         if (export_iter) export_iteration(iter, n, ranks);
 
         double local_dangling_sum = 0;
-        
+
         #pragma omp parallel for
         for (int i = 0; i < n; i++) {
             new_ranks[i] = 0.0;
         }
 
-        // We must update new_ranks carefully because multiple threads could update the same dest node.
-        // To avoid atomic overhead on new_ranks[dest], we use atomics, but lock-free arrays per thread is also an option.
-        // For simplicity and standard OpenMP usage, we use #pragma omp atomic
-        
         #pragma omp parallel for reduction(+:local_dangling_sum) schedule(dynamic, 64)
         for (int i = 0; i < n; i++) {
             int out_degree = g->nodes[i].out_degree;
@@ -87,7 +83,7 @@ int main(int argc, char *argv[]) {
         double diff = 0.0;
         double base_rank = (1.0 - config.damping) / n;
         double dangling_contribution = config.damping * (local_dangling_sum / n);
-        
+
         #pragma omp parallel for reduction(+:diff)
         for (int i = 0; i < n; i++) {
             new_ranks[i] += base_rank + dangling_contribution;

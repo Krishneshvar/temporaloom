@@ -21,7 +21,7 @@ int main(int argc, char *argv[]) {
         if (strcmp(argv[i], "-s") == 0 && i + 1 < argc) source = atoi(argv[++i]);
         if (strcmp(argv[i], "-t") == 0 && i + 1 < argc) num_threads = atoi(argv[++i]);
     }
-    
+
     omp_set_num_threads(num_threads);
 
     Graph *g = load_graph_from_file(argv[1]);
@@ -56,20 +56,18 @@ int main(int argc, char *argv[]) {
             int curr = frontier[i];
             for (int e = 0; e < g->nodes[curr].out_degree; e++) {
                 int nb = g->nodes[curr].edges[e];
-                // Compare and Swap (atomic) to ensure only one thread explores the node
                 if (__sync_bool_compare_and_swap(&distance[nb], INF, level + 1)) {
                     int pos = __sync_fetch_and_add(&next_frontier_size, 1);
                     next_frontier[pos] = nb;
                 }
             }
         }
-        
+
         frontier_size = next_frontier_size;
-        // swap pointers
         int *temp = frontier;
         frontier = next_frontier;
         next_frontier = temp;
-        
+
         level++;
     }
 

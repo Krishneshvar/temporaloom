@@ -18,7 +18,7 @@ export default function ControlPanel({ onRun, onBenchmark, onScrape, onBFS, onSS
   const [sspSource, setSspSource] = useState(0);
   const [sspTarget, setSspTarget] = useState(1);
   const [sspMode, setSspMode]     = useState('sssp_seq');
-  const [maxCores, setMaxCores]   = useState(8);
+  const [maxCores, setMaxCores]   = useState(null); // null until /api/system responds
   const [benchmarkTarget, setBenchmarkTarget] = useState('all');
 
   useEffect(() => {
@@ -116,8 +116,24 @@ export default function ControlPanel({ onRun, onBenchmark, onScrape, onBFS, onSS
           </div>
           {(execMode === 'cpu_par' || execMode === 'cpu_omp') && (
             <div className="flex flex-col gap-1.5">
-              <div className="flex justify-between text-sm font-semibold"><span className="text-[var(--text-muted)]">Workers / Threads</span><span className="text-emerald-400 font-black">{processes}</span></div>
-              <input type="range" min="1" max={maxCores} value={processes} onChange={e => setProcesses(parseInt(e.target.value))} className="w-full h-1.5 rounded-lg bg-[var(--border)] accent-emerald-500" />
+              <div className="flex justify-between text-sm font-semibold items-center">
+                <span className="text-[var(--text-muted)]">Workers / Threads</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-emerald-400 font-black">{processes}</span>
+                  {maxCores && (
+                    <span className="text-[9px] bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 px-1.5 py-0.5 rounded-md font-black uppercase tracking-tight">
+                      {maxCores}P max
+                    </span>
+                  )}
+                </div>
+              </div>
+              {maxCores ? (
+                <input type="range" min="1" max={maxCores} value={processes}
+                  onChange={e => setProcesses(parseInt(e.target.value))}
+                  className="w-full h-1.5 rounded-lg bg-[var(--border)] accent-emerald-500" />
+              ) : (
+                <div className="w-full h-1.5 rounded-lg bg-[var(--border)] animate-pulse" />
+              )}
             </div>
           )}
         </div>
@@ -138,8 +154,24 @@ export default function ControlPanel({ onRun, onBenchmark, onScrape, onBFS, onSS
           {/* Workers slider (CPU only) */}
           {benchmarkTarget === 'cpu' && (
             <div className="flex flex-col gap-1.5">
-              <div className="flex justify-between text-sm font-semibold"><span className="text-[var(--text-muted)]">Workers / Threads</span><span className="text-emerald-400 font-black">{processes}</span></div>
-              <input type="range" min="1" max={maxCores} value={processes} onChange={e => setProcesses(parseInt(e.target.value))} className="w-full h-1.5 rounded-lg bg-[var(--border)] accent-emerald-500" />
+              <div className="flex justify-between text-sm font-semibold items-center">
+                <span className="text-[var(--text-muted)]">Workers / Threads</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-emerald-400 font-black">{processes}</span>
+                  {maxCores && (
+                    <span className="text-[9px] bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 px-1.5 py-0.5 rounded-md font-black uppercase tracking-tight">
+                      {maxCores}P max
+                    </span>
+                  )}
+                </div>
+              </div>
+              {maxCores ? (
+                <input type="range" min="1" max={maxCores} value={processes}
+                  onChange={e => setProcesses(parseInt(e.target.value))}
+                  className="w-full h-1.5 rounded-lg bg-[var(--border)] accent-emerald-500" />
+              ) : (
+                <div className="w-full h-1.5 rounded-lg bg-[var(--border)] animate-pulse" />
+              )}
             </div>
           )}
 
@@ -199,8 +231,24 @@ export default function ControlPanel({ onRun, onBenchmark, onScrape, onBFS, onSS
             </div>
             {(bfsMode === 'bfs_mpi' || bfsMode === 'bfs_omp') && (
               <div className="flex flex-col gap-1.5">
-                <div className="flex justify-between text-sm font-semibold"><span className="text-[var(--text-muted)]">Workers / Threads</span><span className="text-blue-400 font-black">{bfsProcesses}</span></div>
-                <input type="range" min="1" max={maxCores} value={bfsProcesses} onChange={e => setBfsProcesses(parseInt(e.target.value))} className="w-full h-1.5 rounded-lg bg-[var(--border)] accent-blue-500" />
+                <div className="flex justify-between text-sm font-semibold items-center">
+                  <span className="text-[var(--text-muted)]">Workers / Threads</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-blue-400 font-black">{bfsProcesses}</span>
+                    {maxCores && (
+                      <span className="text-[9px] bg-blue-500/10 text-blue-400 border border-blue-500/20 px-1.5 py-0.5 rounded-md font-black uppercase tracking-tight">
+                        {maxCores}P max
+                      </span>
+                    )}
+                  </div>
+                </div>
+                {maxCores ? (
+                  <input type="range" min="1" max={maxCores} value={bfsProcesses}
+                    onChange={e => setBfsProcesses(parseInt(e.target.value))}
+                    className="w-full h-1.5 rounded-lg bg-[var(--border)] accent-blue-500" />
+                ) : (
+                  <div className="w-full h-1.5 rounded-lg bg-[var(--border)] animate-pulse" />
+                )}
               </div>
             )}
             <div className="flex flex-col gap-1.5">

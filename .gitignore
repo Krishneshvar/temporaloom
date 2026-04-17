@@ -42,3 +42,6 @@ next-env.d.ts
 
 # Graph iteration results
 results/
+
+# Run history
+run_history.json

@@ -215,16 +215,35 @@ function HomeContent() {
   };
 
   // ── Benchmark ─────────────────────────────────────────────────────────────
-  const handleBenchmark = async ({ dataset, processes, target }) => {
-    setLoading(true); setStatus('Running benchmark suite...');
-    setSelectedDataset(dataset); setBenchmarkResult(null);
-    try {
-      const res = await fetch('/api/benchmark', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ dataset, processes, target }) });
-      const data = await res.json();
-      if (data.success) { setBenchmarkResult(data.results); setStatus('Benchmark complete.'); }
-      else setStatus(`Error: ${data.error}`);
-    } catch (err) { setStatus(`Error: ${err.message}`); }
-    finally { setLoading(false); }
+  const handleBenchmark = async ({ datasets, processes, target }) => {
+    if (!datasets || datasets.length === 0) return;
+    setLoading(true);
+    setBenchmarkResult(null);
+    const accumulated = [];
+    for (let i = 0; i < datasets.length; i++) {
+      const ds = datasets[i];
+      setStatus(`Benchmarking ${ds} (${i + 1}/${datasets.length})...`);
+      try {
+        const res = await fetch('/api/benchmark', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ dataset: ds, processes, target }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          accumulated.push({ dataset: ds, results: data.results });
+          // Show partial results as they come in
+          setBenchmarkResult([...accumulated]);
+        } else {
+          accumulated.push({ dataset: ds, results: [], error: data.error });
+        }
+      } catch (err) {
+        accumulated.push({ dataset: ds, results: [], error: err.message });
+      }
+    }
+    setStatus(`Benchmark complete — ${accumulated.length} dataset${accumulated.length > 1 ? 's' : ''}.`);
+    setBenchmarkResult(accumulated);
+    setLoading(false);
   };
 
   // ── BFS ───────────────────────────────────────────────────────────────────

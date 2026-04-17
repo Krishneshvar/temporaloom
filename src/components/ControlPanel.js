@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Play, Activity, Cpu, Database, Settings2, Globe, Search, BarChart3, Zap, GitBranch, GitMerge } from 'lucide-react';
 
 export default function ControlPanel({ onRun, onBenchmark, onScrape, onBFS, onSSP, loading, status, currentTab, setCurrentTab, liveMode, minimized = false, dataset, setDataset }) {
+  const [selectedDatasets, setSelectedDatasets] = useState([]);
   const [datasets, setDatasets] = useState([]);
 
   const [execMode, setExecMode]   = useState('cpu_seq');
@@ -36,7 +37,7 @@ export default function ControlPanel({ onRun, onBenchmark, onScrape, onBFS, onSS
     const activeTab = TABS.find(t => t.id === currentTab) || TABS[0];
     const getAction = () => {
       if (currentTab === 'run') return { icon: <Play size={18} />, onClick: () => onRun({ dataset, mode: execMode, processes }), color: 'bg-blue-600 hover:bg-blue-500', title: 'Run Simulation' };
-      if (currentTab === 'benchmark') return { icon: <BarChart3 size={18} />, onClick: () => onBenchmark({ dataset, processes, target: benchmarkTarget }), color: 'bg-emerald-600 hover:bg-emerald-500', title: 'Start Benchmark' };
+      if (currentTab === 'benchmark') return { icon: <BarChart3 size={18} />, onClick: () => onBenchmark({ datasets: selectedDatasets, processes, target: benchmarkTarget }), color: 'bg-emerald-600 hover:bg-emerald-500', title: 'Start Benchmark' };
       if (currentTab === 'bfs') return { icon: <GitBranch size={18} />, onClick: () => onBFS?.({ dataset, mode: bfsMode, processes: bfsProcesses, source: bfsSource }), color: 'bg-emerald-600 hover:bg-emerald-500', title: 'Run BFS' };
       return { icon: <Search size={18} />, onClick: () => onScrape({ startUrl: scrapeUrl, maxDepth }), color: 'bg-purple-600 hover:bg-purple-500', title: 'Generate Graph' };
     };
@@ -125,21 +126,61 @@ export default function ControlPanel({ onRun, onBenchmark, onScrape, onBFS, onSS
       {/* BENCHMARK */}
       {currentTab === 'benchmark' && (
         <div className="pb-1 border-b border-[var(--border)] flex flex-col gap-4">
+          {/* Hardware Target — CPU or GPU only (line chart needs one axis) */}
           <div className="flex items-center justify-between">
-            <label className={labelCls}>Target</label>
+            <label className={labelCls}>Hardware</label>
             <div className="flex bg-[var(--background)] p-1 rounded-lg border border-[var(--border)]">
-              <button onClick={() => setBenchmarkTarget('all')} className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${benchmarkTarget === 'all' ? 'bg-[var(--surface-hover)] text-[var(--foreground)]' : 'text-[var(--text-dim)] hover:text-[var(--foreground)]'}`}>All Run</button>
-              <button onClick={() => setBenchmarkTarget('cpu')} className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${benchmarkTarget === 'cpu' ? 'bg-emerald-600 text-white' : 'text-[var(--text-dim)] hover:text-[var(--foreground)]'}`}>CPU Only</button>
-              <button onClick={() => setBenchmarkTarget('gpu')} className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${benchmarkTarget === 'gpu' ? 'bg-blue-600 text-white' : 'text-[var(--text-dim)] hover:text-[var(--foreground)]'}`}>GPU Only</button>
+              <button onClick={() => setBenchmarkTarget('cpu')} className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${benchmarkTarget === 'cpu' ? 'bg-emerald-600 text-white shadow-lg' : 'text-[var(--text-dim)] hover:text-[var(--foreground)]'}`}>CPU</button>
+              <button onClick={() => setBenchmarkTarget('gpu')} className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${benchmarkTarget === 'gpu' ? 'bg-blue-600 text-white shadow-lg' : 'text-[var(--text-dim)] hover:text-[var(--foreground)]'}`}>GPU</button>
             </div>
           </div>
-          {(benchmarkTarget === 'all' || benchmarkTarget === 'cpu') && (
+
+          {/* Workers slider (CPU only) */}
+          {benchmarkTarget === 'cpu' && (
             <div className="flex flex-col gap-1.5">
               <div className="flex justify-between text-sm font-semibold"><span className="text-[var(--text-muted)]">Workers / Threads</span><span className="text-emerald-400 font-black">{processes}</span></div>
               <input type="range" min="1" max={maxCores} value={processes} onChange={e => setProcesses(parseInt(e.target.value))} className="w-full h-1.5 rounded-lg bg-[var(--border)] accent-emerald-500" />
             </div>
           )}
-          <p className="text-xs text-[var(--text-dim)] font-semibold leading-relaxed">Runs selected hardware modes and compares execution times.</p>
+
+          {/* Multi-dataset checklist */}
+          <div className="flex flex-col gap-1.5">
+            <div className="flex items-center justify-between">
+              <label className={labelCls}><Database size={14} /> Datasets</label>
+              {selectedDatasets.length > 0 && (
+                <button onClick={() => setSelectedDatasets([])} className="text-[9px] text-red-400/60 hover:text-red-400 font-bold uppercase tracking-wider transition-colors">Clear</button>
+              )}
+            </div>
+            <div className="flex flex-col gap-1 max-h-[160px] overflow-y-auto custom-scrollbar pr-1">
+              {datasets.length === 0 ? (
+                <p className="text-[10px] text-[var(--text-dim)] italic py-2">No datasets found</p>
+              ) : datasets.map(d => {
+                const checked = selectedDatasets.includes(d);
+                return (
+                  <label key={d} className={`flex items-center gap-2.5 px-3 py-2 rounded-xl cursor-pointer transition-all border ${
+                    checked
+                      ? 'bg-blue-500/10 border-blue-500/20 text-blue-300'
+                      : 'border-transparent hover:bg-[var(--surface-hover)] text-[var(--text-dim)] hover:text-[var(--foreground)]'
+                  }`}>
+                    <input
+                      type="checkbox"
+                      className="accent-blue-500 w-3.5 h-3.5 shrink-0"
+                      checked={checked}
+                      onChange={() => setSelectedDatasets(prev =>
+                        prev.includes(d) ? prev.filter(x => x !== d) : [...prev, d]
+                      )}
+                    />
+                    <span className="text-[11px] font-mono font-bold truncate">{d}</span>
+                  </label>
+                );
+              })}
+            </div>
+            {selectedDatasets.length > 0 && (
+              <p className="text-[10px] text-blue-400 font-bold">{selectedDatasets.length} dataset{selectedDatasets.length > 1 ? 's' : ''} selected</p>
+            )}
+          </div>
+
+          <p className="text-xs text-[var(--text-dim)] font-semibold leading-relaxed">Select datasets to compare across hardware modes as a line chart.</p>
         </div>
       )}
 
@@ -218,10 +259,10 @@ export default function ControlPanel({ onRun, onBenchmark, onScrape, onBFS, onSS
       )}
 
       {currentTab === 'benchmark' && (
-        <button onClick={() => onBenchmark({ dataset, processes, target: benchmarkTarget })} disabled={loading || !dataset}
+        <button onClick={() => onBenchmark({ datasets: selectedDatasets, processes, target: benchmarkTarget })} disabled={loading || selectedDatasets.length === 0}
           className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 disabled:opacity-30 disabled:cursor-not-allowed text-white p-4 rounded-xl font-bold flex items-center justify-center gap-2.5 shadow-lg active:scale-95 transition-all text-sm">
           {loading ? <Activity className="animate-spin" size={18} /> : <BarChart3 size={18} />}
-          {loading ? 'Benchmarking...' : 'Start Benchmark'}
+          {loading ? 'Benchmarking...' : `Run Benchmark${selectedDatasets.length > 1 ? ` (${selectedDatasets.length})` : ''}`}
         </button>
       )}
 

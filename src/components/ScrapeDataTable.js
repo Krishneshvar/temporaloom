@@ -11,8 +11,11 @@ export default function ScrapeDataTable({ events }) {
   // Process events into a flat list of URL results
   const tableData = useMemo(() => {
     const data = [];
-    // We group by URL to show a single entry with its final result
     const urlMap = new Map();
+    
+    // Get latest pageRank map from events
+    const latestEvent = events[events.length - 1];
+    const pageRank = latestEvent?.pageRank || events.findLast(e => e.type === 'complete')?.data?.pageRank || {};
 
     events.forEach((ev, index) => {
       if (!ev.url || ev.url === 'SYSTEM') return;
@@ -25,6 +28,7 @@ export default function ScrapeDataTable({ events }) {
           workerId: ev.workerId,
           status: 'pending',
           edges: 0,
+          rank: 0,
           error: null,
           startTime: Date.now(), // Fallback
           endTime: null,
@@ -32,6 +36,14 @@ export default function ScrapeDataTable({ events }) {
           timestamp: index
         };
         urlMap.set(ev.url, entry);
+      }
+
+      // Update rank if exists
+      if (pageRank[ev.url]) {
+        entry.rank = pageRank[ev.url];
+      } else if (ev.urlMapId !== undefined && pageRank[ev.urlMapId]) {
+        // Handle numeric ID mapping if that's what's in the event
+        entry.rank = pageRank[ev.urlMapId];
       }
 
       if (ev.type === 'crawling') {
@@ -61,7 +73,10 @@ export default function ScrapeDataTable({ events }) {
         const matchesFilter = filterType === 'all' || item.status === filterType;
         return matchesSearch && matchesFilter;
       })
-      .sort((a, b) => b.timestamp - a.timestamp);
+      .sort((a, b) => {
+        if (a.rank !== b.rank) return b.rank - a.rank;
+        return b.timestamp - a.timestamp;
+      });
   }, [events, search, filterType]);
 
   const stats = useMemo(() => {
@@ -123,10 +138,10 @@ export default function ScrapeDataTable({ events }) {
             <tr className="border-b border-[var(--border)] bg-[var(--surface)]/80 backdrop-blur-md">
               <th className="px-6 py-4 text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest w-24">Worker</th>
               <th className="px-6 py-4 text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest w-20">Depth</th>
-              <th className="px-6 py-4 text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest w-32">Status</th>
+              <th className="px-6 py-4 text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest w-28">Status</th>
               <th className="px-6 py-4 text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest">Resource URL</th>
-              <th className="px-6 py-4 text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest w-24">Edges</th>
-              <th className="px-6 py-4 text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest w-20">Time</th>
+              <th className="px-6 py-4 text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest w-24">Rank</th>
+              <th className="px-6 py-4 text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest w-24 text-right">Time</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-[var(--border)]">
@@ -161,17 +176,21 @@ export default function ScrapeDataTable({ events }) {
                     </div>
                   </td>
                   <td className="px-6 py-4">
-                    {row.status === 'success' ? (
-                      <div className="flex items-center gap-1.5 text-purple-400 font-bold font-mono text-xs">
-                        <Link2 size={12} /> +{row.edges}
+                    <div className="flex items-center gap-2">
+                      <div className="w-16 h-1.5 bg-[var(--border)] rounded-full overflow-hidden shrink-0">
+                        <div 
+                          className="h-full bg-gradient-to-r from-blue-500 to-purple-500" 
+                          style={{ width: `${Math.min(row.rank * 1000, 100)}%` }} 
+                        />
                       </div>
-                    ) : (
-                      <span className="text-[var(--text-dim)] opacity-30">—</span>
-                    )}
+                      <span className="text-[11px] font-black font-mono text-[var(--foreground)]/80">
+                        {(row.rank * 100).toFixed(2)}%
+                      </span>
+                    </div>
                   </td>
-                  <td className="px-6 py-4">
+                  <td className="px-6 py-4 text-right">
                     {row.latency ? (
-                      <div className="flex items-center gap-1.5 text-[var(--text-dim)] font-mono text-[10px]">
+                      <div className="flex items-center justify-end gap-1.5 text-[var(--text-dim)] font-mono text-[10px]">
                         <Clock size={10} /> {row.latency.toFixed(0)}ms
                       </div>
                     ) : (

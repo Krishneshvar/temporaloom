@@ -130,7 +130,11 @@ export async function buildGraphFromWeb(startUrl, maxDepth, onUpdate = null, sig
     if (depth >= maxDepth) return;
 
     if (onUpdate) {
-      const pageRank = computeLivePageRank(nextId, edges);
+      const prRaw = computeLivePageRank(nextId, Array.from(edges));
+      const pageRank = {};
+      for (const [url, id] of urlMap.entries()) {
+        if (prRaw[id] !== undefined) pageRank[url] = prRaw[id];
+      }
       const degreeDist = computeDegreeDistribution(nextId, edges);
 
       onUpdate({ 
@@ -283,6 +287,14 @@ export async function buildGraphFromWeb(startUrl, maxDepth, onUpdate = null, sig
      throw new Error("Unable to parse any nodes from the provided root URL. Ensure it is a valid HTML page.");
   }
 
+  // Final high-precision PageRank
+  const finalPageRank = computeLivePageRank(numNodes, Array.from(edges), 20);
+  const nodes = Array.from(urlMap.entries()).map(([url, id]) => ({
+    id,
+    url,
+    rank: finalPageRank[id] || 0
+  })).sort((a, b) => b.rank - a.rank);
+
   // File Generation
   const safeDomain = startHostname.replace(/[^a-z0-9]/gi, '_');
   const filename = `website_${safeDomain}_d${maxDepth}.txt`;
@@ -302,6 +314,8 @@ export async function buildGraphFromWeb(startUrl, maxDepth, onUpdate = null, sig
     filename,
     numNodes,
     numEdges,
+    nodes, // Top ranks as list
+    pageRank: Object.fromEntries(nodes.map(n => [n.url, n.rank])), // URL-keyed scores
     message: `Scraped ${numNodes} nodes and ${numEdges} edges. Timeout: ${Date.now() - startTime < CRAWL_TIMEOUT_MS ? 'Success' : 'Partial (reached 20s limit)'}. Dataset generated as ${filename}.`
   };
 

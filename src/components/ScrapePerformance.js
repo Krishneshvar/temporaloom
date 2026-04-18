@@ -28,6 +28,12 @@ export default function ScrapePerformance({ events, isScraping }) {
     return Object.values(buckets).sort((a,b) => parseFloat(a.time) - parseFloat(b.time));
   }, [events]);
 
+  const topRanks = useMemo(() => {
+    const completeEvent = events.find(e => e.type === 'complete');
+    if (!completeEvent?.data?.nodes) return [];
+    return completeEvent.data.nodes.slice(0, 10);
+  }, [events]);
+
   const latencyDist = useMemo(() => {
     const bins = { '0-200ms': 0, '200-500ms': 0, '500ms-1s': 0, '1s-2s': 0, '2s+': 0 };
     events.forEach(ev => {
@@ -47,7 +53,7 @@ export default function ScrapePerformance({ events, isScraping }) {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <BarChart3 size={18} className="text-emerald-400" />
-          <span className="text-sm font-black uppercase tracking-widest text-[var(--foreground)]">Performance Analytics</span>
+          <span className="text-sm font-black uppercase tracking-widest text-[var(--foreground)]">Performance & Analytics</span>
         </div>
         {isScraping && (
            <div className="flex items-center gap-2 px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded-full">
@@ -110,6 +116,40 @@ export default function ScrapePerformance({ events, isScraping }) {
         </div>
       </div>
 
+      {/* Top Rankings Section - Only visible when we have data */}
+      {topRanks.length > 0 && (
+        <div className="p-6 bg-gradient-to-br from-indigo-500/5 to-purple-500/5 border border-indigo-500/10 rounded-2xl flex flex-col gap-6">
+          <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-1">
+              <span className="text-xs font-black uppercase tracking-widest text-[var(--foreground)]">Top Authority Rankings</span>
+              <span className="text-[9px] font-bold text-indigo-400/60 uppercase tracking-tighter">Based on Post-Crawl PageRank Analysis</span>
+            </div>
+            <Binary size={18} className="text-purple-400" />
+          </div>
+
+          <div className="flex flex-col gap-4">
+            {topRanks.map((node, i) => (
+              <div key={node.id} className="flex flex-col gap-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <span className="text-[10px] font-black font-mono text-purple-400 w-4">#{i+1}</span>
+                    <span className="text-[11px] font-mono text-[var(--foreground)] opacity-70 truncate max-w-[240px] md:max-w-md">{node.url}</span>
+                  </div>
+                  <span className="text-[11px] font-black font-mono text-emerald-400">{(node.rank * 100).toFixed(3)}%</span>
+                </div>
+                <div className="w-full h-1 bg-[var(--border)] rounded-full overflow-hidden">
+                  <motion.div 
+                    initial={{ width: 0 }}
+                    animate={{ width: `${Math.min(node.rank * 1000, 100)}%` }}
+                    className="h-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500"
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
          <MetricBox icon={<Zap size={14} />} label="Peak Throughput" value="12.4 req/s" unit="avg" />
          <MetricBox icon={<Cpu size={14} />} label="Parallelism Factor" value="x12.0" unit="active" />
@@ -141,3 +181,4 @@ function MetricBox({ icon, label, value, unit }) {
     </div>
   );
 }
+

@@ -10,12 +10,11 @@ export default function ScrapeDataTable({ events }) {
 
   // Process events into a flat list of URL results
   const tableData = useMemo(() => {
-    const data = [];
     const urlMap = new Map();
     
-    // Get latest pageRank map from events
-    const latestEvent = events[events.length - 1];
-    const pageRank = latestEvent?.pageRank || events.findLast(e => e.type === 'complete')?.data?.pageRank || {};
+    // Look back for the latest event that actually contains PageRank data
+    const prEvent = [...events].reverse().find(e => e.pageRank || e.data?.pageRank);
+    const pageRank = prEvent?.pageRank || prEvent?.data?.pageRank || {};
 
     events.forEach((ev, index) => {
       if (!ev.url || ev.url === 'SYSTEM') return;

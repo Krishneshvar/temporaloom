@@ -583,7 +583,7 @@ function HomeContent() {
 
             {/* SCRAPE */}
             {currentTab === 'scrape' && (
-              <motion.div key="scrape" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className={`flex flex-col gap-6 ${scrapeFullscreen ? 'h-full min-h-0' : ''}`}>
+              <motion.div key="scrape" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="flex flex-col gap-6 flex-1 min-h-0">
                 <ScrapeVisualizer events={scrapeEvents} isScraping={isScraping} onStop={stopScrape} />
               </motion.div>
             )}

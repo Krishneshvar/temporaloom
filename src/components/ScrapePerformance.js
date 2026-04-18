@@ -29,9 +29,18 @@ export default function ScrapePerformance({ events, isScraping }) {
   }, [events]);
 
   const topRanks = useMemo(() => {
+    // Check for final results first
     const completeEvent = events.find(e => e.type === 'complete');
-    if (!completeEvent?.data?.nodes) return [];
-    return completeEvent.data.nodes.slice(0, 10);
+    if (completeEvent?.data?.nodes) return completeEvent.data.nodes.slice(0, 10);
+
+    // Fallback to live data
+    const prEvent = [...events].reverse().find(e => e.pageRank);
+    if (!prEvent?.pageRank) return [];
+
+    return Object.entries(prEvent.pageRank)
+      .map(([url, rank]) => ({ url, rank, id: url }))
+      .sort((a, b) => b.rank - a.rank)
+      .slice(0, 10);
   }, [events]);
 
   const latencyDist = useMemo(() => {

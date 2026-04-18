@@ -177,7 +177,7 @@ export async function buildGraphFromWeb(startUrl, maxDepth, onUpdate = null, sig
 
       // Parallelize link processing (normalization and filtering)
       const uniqueLinks = Array.from(new Set(links));
-      let foundCount = 0;
+      const targets = [];
 
       for (const href of uniqueLinks) {
         if (signal?.aborted) break;
@@ -196,7 +196,7 @@ export async function buildGraphFromWeb(startUrl, maxDepth, onUpdate = null, sig
           
           if (sourceId !== targetId) {
             edges.add(`${sourceId} ${targetId}`);
-            foundCount++;
+            targets.push(cleanHref);
           }
 
           if (!visited.has(cleanHref) && !processing.has(cleanHref)) {
@@ -207,7 +207,16 @@ export async function buildGraphFromWeb(startUrl, maxDepth, onUpdate = null, sig
         } catch (e) {}
       }
       
-      if (onUpdate) onUpdate({ type: 'finished', url, found: foundCount, nodes: nextId, edges: edges.size, active: activeRequests, workerId });
+      if (onUpdate) onUpdate({ 
+        type: 'finished', 
+        url, 
+        found: targets.length, 
+        targets,
+        nodes: nextId, 
+        edges: edges.size, 
+        active: activeRequests, 
+        workerId 
+      });
 
     } catch (error) {
       if (axios.isCancel(error)) return;

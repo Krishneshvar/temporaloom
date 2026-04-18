@@ -44,32 +44,75 @@ export default function ScrapeVisualizer({ events, isScraping, onStop }) {
     }
   }, [events]);
 
+  // Data lookup for PageRank based on Live or Final
+  const { pageRank, maxPR } = useMemo(() => {
+    const prEvent = [...events].reverse().find(e => e.pageRank || e.data?.pageRank);
+    const pr = prEvent?.pageRank || prEvent?.data?.pageRank || {};
+    return {
+      pageRank: pr,
+      maxPR: Math.max(...Object.values(pr), 0.0001)
+    };
+  }, [events]);
+
   // ── Live D3 Crawl Graph ──────────────────────────────────────────────────
   useEffect(() => {
-    if (!svgRef.current) return;
+    const lg = liveGraphRef.current;
+
+    if (!svgRef.current || viewMode !== 'graph') return;
+    
     const parent = svgRef.current.parentElement;
-    const W = parent?.clientWidth || 500;
-    const H = parent?.clientHeight || 640;
+    if (!parent) return;
+
+    const updateSize = () => {
+      const W = parent.clientWidth;
+      const H = parent.clientHeight;
+      const svg = d3.select(svgRef.current);
+      svg.attr('viewBox', [0, 0, W, H]);
+      if (lg.sim) {
+        lg.sim.force('center', d3.forceCenter(W / 2, H / 2));
+        lg.sim.alpha(0.3).restart();
+      }
+    };
+
+    const resizeObserver = new ResizeObserver(() => updateSize());
+    resizeObserver.observe(parent);
 
     const svg = d3.select(svgRef.current);
-    const colorScale = d3.scaleSequential(d3.interpolateViridis); // Heatmap scale
+    const colorScale = d3.scaleSequential(d3.interpolateViridis);
 
     if (svg.select('g').empty()) {
+      const W = parent.clientWidth;
+      const H = parent.clientHeight;
       svg.attr('viewBox', [0, 0, W, H]);
       const zoom = d3.zoom().scaleExtent([0.1, 8]).on('zoom', e => svg.select('g').attr('transform', e.transform));
       svg.call(zoom);
+      
+      const defs = svg.append('defs');
+      defs.append('marker')
+        .attr('id', 'arrowhead')
+        .attr('viewBox', '-0 -5 10 10')
+        .attr('refX', 20) // offset from node
+        .attr('refY', 0)
+        .attr('orient', 'auto')
+        .attr('markerWidth', 6)
+        .attr('markerHeight', 6)
+        .attr('xoverflow', 'visible')
+        .append('svg:path')
+        .attr('d', 'M 0,-5 L 10 ,0 L 0,5')
+        .attr('fill', theme === 'dark' ? '#64748b' : '#94a3b8')
+        .style('stroke', 'none');
+
       svg.append('g');
     }
 
     const g = svg.select('g');
-    const lg = liveGraphRef.current;
 
     // Initialize simulation once
     if (!lg.sim) {
       lg.sim = d3.forceSimulation()
         .force('link', d3.forceLink().id(d => d.id).distance(60))
-        .force('charge', d3.forceManyBody().strength(-150))
-        .force('center', d3.forceCenter(W / 2, H / 2))
+        .force('charge', d3.forceManyBody().strength(-200))
+        .force('center', d3.forceCenter(parent.clientWidth / 2, parent.clientHeight / 2))
         .force('collision', d3.forceCollide().radius(20))
         .alphaDecay(0.015);
     }
@@ -83,80 +126,97 @@ export default function ScrapeVisualizer({ events, isScraping, onStop }) {
         lg.nodes.set(ev.url, { id: ev.url, depth: ev.depth || 0 });
         graphChanged = true;
       }
-    });
-
-    // Add edges from finished events
-    events.filter(e => e.type === 'finished').forEach(ev => {
-      // The crawled URL is the source; we don't have individual targets here,
-      // but we can link it to the start node for a visual "crawl tree"
-      const startUrl = events.find(e => e.type === 'crawling' && e.depth === 0)?.url;
-      if (startUrl && ev.url !== startUrl && !lg.links.find(l => l.source === startUrl && l.target === ev.url)) {
-        lg.links.push({ source: startUrl, target: ev.url });
-        graphChanged = true;
+      
+      // Add edges from finished events (real topology)
+      if (ev.type === 'finished' && ev.targets) {
+        ev.targets.forEach(targetUrl => {
+          if (!lg.nodes.has(targetUrl)) {
+            lg.nodes.set(targetUrl, { id: targetUrl, depth: (ev.depth || 0) + 1 });
+            graphChanged = true;
+          }
+          const linkExists = lg.links.some(l => {
+            const sId = typeof l.source === 'object' ? l.source.id : l.source;
+            const tId = typeof l.target === 'object' ? l.target.id : l.target;
+            return sId === ev.url && tId === targetUrl;
+          });
+          if (!linkExists) {
+            lg.links.push({ source: ev.url, target: targetUrl });
+            graphChanged = true;
+          }
+        });
       }
     });
 
-    if (!graphChanged) return;
+    const isNewSvg = g.selectAll('*').empty() || g.selectAll('.live-node').empty();
 
     const nodesArr = Array.from(lg.nodes.values());
     const linksArr = lg.links.slice();
 
-    // Colour by depth
-    const depthScale = d3.scaleSequential(d3.interpolateCool).domain([0, 5]);
-
-    // Links
+    // Data join for links - always update selection to avoid stale closures
     const linkSel = g.selectAll('.live-link')
-      .data(linksArr, d => `${d.source}|${d.target}`)
+      .data(linksArr, d => {
+        const s = typeof d.source === 'object' ? d.source.id : d.source;
+        const t = typeof d.target === 'object' ? d.target.id : d.target;
+        return `${s}|${t}`;
+      })
       .join('line')
       .attr('class', 'live-link')
-      .attr('stroke', theme === 'dark' ? '#334155' : '#cbd5e1')
-      .attr('stroke-opacity', 0.5)
-      .attr('stroke-width', 1);
+      .attr('stroke', theme === 'dark' ? '#64748b' : '#94a3b8') // Brighter slate
+      .attr('stroke-opacity', 0.8)
+      .attr('stroke-width', 1.5)
+      .attr('marker-end', 'url(#arrowhead)'); // Directional marker
 
-    // Nodes
+    // Data join for nodes
     const nodeSel = g.selectAll('.live-node')
       .data(nodesArr, d => d.id)
       .join('circle')
       .attr('class', 'live-node')
-      .attr('stroke', d => selectedNode?.id === d.id ? (theme === 'dark' ? '#fff' : '#000') : (theme === 'dark' ? '#0f172a' : '#f8fafc'))
-      .attr('stroke-width', d => selectedNode?.id === d.id ? 2 : 1)
       .on('click', (e, d) => setSelectedNode(d))
       .call(d3.drag()
         .on('start', (e, d) => { if (!e.active) lg.sim.alphaTarget(0.3).restart(); d.fx = d.x; d.fy = d.y; })
         .on('drag', (e, d) => { d.fx = e.x; d.fy = e.y; })
         .on('end', (e, d) => { if (!e.active) lg.sim.alphaTarget(0); d.fx = null; d.fy = null; }));
 
-    // Heatmap Color Adjustment based on Live PageRank
-    const pageRank = latestEvent?.pageRank || {};
-    const maxPR = Math.max(...Object.values(pageRank), 0.0001);
+    if (graphChanged || isNewSvg) {
+      lg.sim.nodes(nodesArr);
+      lg.sim.force('link').links(linksArr);
+      lg.sim.alpha(0.4).restart();
+    }
 
-    nodeSel.transition().duration(500)
+    // Update tick handler on every effect to capture latest selections/refs
+    lg.sim.on('tick', () => {
+      linkSel
+        .attr('x1', d => (typeof d.source === 'object' ? d.source.x : 0) ?? 0)
+        .attr('y1', d => (typeof d.source === 'object' ? d.source.y : 0) ?? 0)
+        .attr('x2', d => (typeof d.target === 'object' ? d.target.x : 0) ?? 0)
+        .attr('y2', d => (typeof d.target === 'object' ? d.target.y : 0) ?? 0);
+      
+      nodeSel
+        .attr('cx', d => d.x ?? 0)
+        .attr('cy', d => d.y ?? 0);
+    });
+
+    // Style Update (runs always on PR changes or selection)
+    nodeSel.transition().duration(300)
       .attr('r', d => {
-        const base = d.depth === 0 ? 9 : 5;
-        const prBonus = pageRank[d.id] ? (pageRank[d.id] / maxPR) * 10 : 0;
+        const base = d.depth === 0 ? 12 : 7;
+        const pr = pageRank[d.id] || 0;
+        const prBonus = pr ? (pr / maxPR) * 15 : 0;
         return base + prBonus;
       })
       .attr('fill', d => {
         const score = pageRank[d.id] || 0;
         return colorScale(score / maxPR);
       })
+      .attr('stroke', d => (selectedNode && selectedNode.id === d.id) ? (theme === 'dark' ? '#fff' : '#000') : (theme === 'dark' ? '#0f172a' : '#f8fafc'))
+      .attr('stroke-width', d => (selectedNode && selectedNode.id === d.id) ? 3 : 1.5)
       .attr('opacity', d => {
         if (!searchQuery) return 1;
         return d.id.toLowerCase().includes(searchQuery.toLowerCase()) ? 1 : 0.2;
       });
 
-    lg.sim.nodes(nodesArr).on('tick', () => {
-      linkSel
-        .attr('x1', d => (typeof d.source === 'object' ? d.source.x : 0) ?? 0)
-        .attr('y1', d => (typeof d.source === 'object' ? d.source.y : 0) ?? 0)
-        .attr('x2', d => (typeof d.target === 'object' ? d.target.x : 0) ?? 0)
-        .attr('y2', d => (typeof d.target === 'object' ? d.target.y : 0) ?? 0);
-      nodeSel.attr('cx', d => d.x ?? 0).attr('cy', d => d.y ?? 0);
-    });
-
-    lg.sim.force('link').links(linksArr);
-    lg.sim.alpha(0.4).restart();
-  }, [events, theme, selectedNode, searchQuery]);
+    return () => resizeObserver.disconnect();
+  }, [events, theme, selectedNode, searchQuery, viewMode, pageRank, maxPR]);
 
   // Reset graph state when new crawl starts
   useEffect(() => {
@@ -183,8 +243,8 @@ export default function ScrapeVisualizer({ events, isScraping, onStop }) {
     const completeEvent = events.find(e => e.type === 'complete');
     
     return {
-      nodes: lastStatEvent?.nodes || completeEvent?.data?.numNodes || 0,
-      edges: lastStatEvent?.edges || completeEvent?.data?.numEdges || 0,
+      nodes: lastStatEvent?.nodes || completeEvent?.data?.numNodes || liveGraphRef.current.nodes.size || 0,
+      edges: lastStatEvent?.edges || completeEvent?.data?.numEdges || liveGraphRef.current.links.length || 0,
       active: lastStatEvent?.active || 0,
       errors: events.filter(e => e.type === 'error').length,
       analytics: lastStatEvent?.analytics || { degreeDist: {}, maxDegree: 0 }
@@ -461,7 +521,7 @@ export default function ScrapeVisualizer({ events, isScraping, onStop }) {
                     <div className="flex flex-col gap-2">
                        <span className="text-[10px] font-black text-[var(--text-dim)] uppercase tracking-tighter">Canonical Identity</span>
                        <div className="text-xs font-mono text-emerald-400 break-all leading-relaxed p-3 bg-emerald-500/5 border border-emerald-500/10 rounded-xl">
-                         {selectedNode.url}
+                         {selectedNode.id}
                        </div>
                     </div>
 
@@ -469,13 +529,17 @@ export default function ScrapeVisualizer({ events, isScraping, onStop }) {
                       <div className="p-4 bg-[var(--background)]/5 border border-[var(--border)] rounded-xl flex flex-col gap-1">
                         <span className="text-[9px] font-black text-[var(--text-dim)] uppercase">Centrality</span>
                         <span className="text-lg font-mono font-bold text-yellow-500">
-                          {((latestEvent?.pageRank?.[selectedNode.id] || 0) * 100).toFixed(2)}%
+                          {((pageRank[selectedNode.id] || 0) * 100).toFixed(2)}%
                         </span>
                       </div>
                       <div className="p-4 bg-[var(--background)]/5 border border-[var(--border)] rounded-xl flex flex-col gap-1">
                         <span className="text-[9px] font-black text-[var(--text-dim)] uppercase">Neighbors</span>
                         <span className="text-lg font-mono font-bold text-blue-500">
-                          {liveGraphRef.current.links.filter(l => l.source.id === selectedNode.id || l.target.id === selectedNode.id).length}
+                          {liveGraphRef.current.links.filter(l => {
+                            const sId = typeof l.source === 'object' ? l.source.id : l.source;
+                            const tId = typeof l.target === 'object' ? l.target.id : l.target;
+                            return sId === selectedNode.id || tId === selectedNode.id;
+                          }).length}
                         </span>
                       </div>
                     </div>
@@ -485,14 +549,33 @@ export default function ScrapeVisualizer({ events, isScraping, onStop }) {
                          <GitBranch size={12} /> Proximal Relations
                        </span>
                        <div className="h-48 overflow-y-auto custom-scrollbar flex flex-col gap-2">
-                          {liveGraphRef.current.links.filter(l => l.source.id === selectedNode.id || l.target.id === selectedNode.id).slice(0, 10).map((l, i) => {
-                            const neighbor = l.source.id === selectedNode.id ? l.target : l.source;
+                          {liveGraphRef.current.links.filter(l => {
+                            const sId = typeof l.source === 'object' ? l.source.id : l.source;
+                            const tId = typeof l.target === 'object' ? l.target.id : l.target;
+                            return (sId && sId === selectedNode.id) || (tId && tId === selectedNode.id);
+                          }).length === 0 && (
+                            <div className="text-[9px] text-[var(--text-dim)] italic p-4 text-center border border-dashed border-[var(--border)] rounded-xl">
+                              No proximal relations discovered in current topology slice
+                            </div>
+                          )}
+                          {liveGraphRef.current.links.filter(l => {
+                            const sId = typeof l.source === 'object' ? l.source.id : l.source;
+                            const tId = typeof l.target === 'object' ? l.target.id : l.target;
+                            return (sId && sId === selectedNode.id) || (tId && tId === selectedNode.id);
+                          }).slice(0, 20).map((l, i) => {
+                            const sId = typeof l.source === 'object' ? l.source.id : l.source;
+                            const tId = typeof l.target === 'object' ? l.target.id : l.target;
+                            const isOut = sId === selectedNode.id;
+                            const neighbor = isOut ? l.target : l.source;
+                            const neighborId = typeof neighbor === 'object' ? neighbor.id : neighbor;
+                            if (!neighborId) return null;
+                            
                             return (
-                              <div key={i} className="flex items-center gap-2 p-2 bg-[var(--background)]/3 border border-[var(--border)] rounded-lg">
-                                <span className={`text-[8px] font-black px-1.5 py-0.5 rounded ${l.source.id === selectedNode.id ? 'bg-blue-500/10 text-blue-400' : 'bg-purple-500/10 text-purple-400'}`}>
-                                  {l.source.id === selectedNode.id ? 'OUT' : 'IN'}
+                              <div key={i} className="flex items-center gap-2 p-2 bg-[var(--background)]/3 border border-[var(--border)] rounded-lg hover:border-blue-500/30 transition-colors">
+                                <span className={`text-[8px] font-black px-1.5 py-0.5 rounded ${isOut ? 'bg-blue-500/10 text-blue-400' : 'bg-purple-500/10 text-purple-400'}`}>
+                                  {isOut ? 'OUT' : 'IN'}
                                 </span>
-                                <span className="text-[9px] font-mono text-[var(--text-dim)] truncate flex-1">{neighbor.name}</span>
+                                <span className="text-[9px] font-mono text-[var(--text-dim)] truncate flex-1" title={neighborId}>{neighborId}</span>
                               </div>
                             );
                           })}

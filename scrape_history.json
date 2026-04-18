@@ -1,5 +1,85 @@
 [
   {
+    "id": "1776483448307-rai2bsa",
+    "timestamp": "2026-04-18T03:37:28.307Z",
+    "startUrl": "https://books.toscrape.com/",
+    "maxDepth": 2,
+    "numNodes": 586,
+    "numEdges": 3529
+  },
+  {
+    "id": "1776483448260-abkdsua",
+    "timestamp": "2026-04-18T03:37:28.261Z",
+    "startUrl": "https://books.toscrape.com/",
+    "maxDepth": 2,
+    "numNodes": 586,
+    "numEdges": 3529
+  },
+  {
+    "id": "1776483287175-ix2sxig",
+    "timestamp": "2026-04-18T03:34:47.175Z",
+    "startUrl": "https://books.toscrape.com/",
+    "maxDepth": 2,
+    "numNodes": 586,
+    "numEdges": 3529
+  },
+  {
+    "id": "1776483287132-iip3oym",
+    "timestamp": "2026-04-18T03:34:47.132Z",
+    "startUrl": "https://books.toscrape.com/",
+    "maxDepth": 2,
+    "numNodes": 586,
+    "numEdges": 3529
+  },
+  {
+    "id": "1776483052037-v5ulx6m",
+    "timestamp": "2026-04-18T03:30:52.037Z",
+    "startUrl": "https://books.toscrape.com/",
+    "maxDepth": 2,
+    "numNodes": 586,
+    "numEdges": 3529
+  },
+  {
+    "id": "1776483051989-7kla5vu",
+    "timestamp": "2026-04-18T03:30:51.989Z",
+    "startUrl": "https://books.toscrape.com/",
+    "maxDepth": 2,
+    "numNodes": 586,
+    "numEdges": 3529
+  },
+  {
+    "id": "1776482899045-5h05bdq",
+    "timestamp": "2026-04-18T03:28:19.045Z",
+    "startUrl": "https://books.toscrape.com/",
+    "maxDepth": 2,
+    "numNodes": 586,
+    "numEdges": 3529
+  },
+  {
+    "id": "1776482898996-yltfsfc",
+    "timestamp": "2026-04-18T03:28:18.996Z",
+    "startUrl": "https://books.toscrape.com/",
+    "maxDepth": 2,
+    "numNodes": 586,
+    "numEdges": 3529
+  },
+  {
+    "id": "1776482770866-schm2u9",
+    "timestamp": "2026-04-18T03:26:10.866Z",
+    "startUrl": "https://books.toscrape.com/",
+    "maxDepth": 2,
+    "numNodes": 586,
+    "numEdges": 3529
+  },
+  {
+    "id": "1776482770826-0qq033l",
+    "timestamp": "2026-04-18T03:26:10.826Z",
+    "startUrl": "https://books.toscrape.com/",
+    "maxDepth": 2,
+    "numNodes": 586,
+    "numEdges": 3529
+  },
+  {
     "id": "1776480336650-9npb3c0",
     "timestamp": "2026-04-18T02:45:36.650Z",
     "startUrl": "https://www.scrapethissite.com/pages/",

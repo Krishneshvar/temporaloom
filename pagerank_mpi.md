@@ -97,3 +97,16 @@ processes from writing to stdout simultaneously.
 |------|--------|
 | `-j` | Output results as JSON |
 | `-e` | Export per-iteration snapshots (rank 0 only) |
+
+---
+
+## Worker Telemetry
+
+```c
+// At the start of every iteration, each rank reports its status
+fprintf(stderr, "[WORKER %d] status processing iteration %d\n", rank + 1, iter);
+fflush(stderr);
+```
+
+Every distributed MPI process sends a heartbeat signal to `stderr`. The frontend maps these `rank+1` identifiers to the processing grid, allowing real-time monitoring of each node's activity within the cluster/CPU.
+

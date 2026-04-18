@@ -83,3 +83,19 @@ by the Next.js BFS visualisation.
 | `-j`       | Output JSON |
 | `-s <n>`   | Source node (default: 0) |
 | `-t <n>`   | Number of threads |
+
+---
+
+## Worker Telemetry
+
+```c
+#pragma omp parallel
+{
+    fprintf(stderr, "[WORKER %d] status processing level %d\n", omp_get_thread_num() + 1, level);
+    fflush(stderr);
+    // ... parallel frontier search ...
+}
+```
+
+Every OpenMP hardware thread communicates its current BFS level progress to the UI via `stderr` heartbeats. This allows the lecturer to see the level-synchronous expansion being processed by multiple threads in real-time.
+

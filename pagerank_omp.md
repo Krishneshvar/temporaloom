@@ -97,3 +97,19 @@ speedup, as opposed to `clock()` which would sum CPU time across all threads.
 | `-j`       | Output results as JSON |
 | `-e`       | Export per-iteration snapshots |
 | `-t <n>`   | Use exactly `n` threads |
+
+---
+
+## Worker Telemetry
+
+```c
+#pragma omp parallel
+{
+    fprintf(stderr, "[WORKER %d] status processing iteration %d\n", omp_get_thread_num() + 1, iter);
+    fflush(stderr);
+    // ... loop ...
+}
+```
+
+To drive the real-time processing dashboard in the UI, every thread reports its current status to `stderr` at the start of each iteration. The `omp_get_thread_num()` identifier is used to map hardware threads to the "Processing Units" grid in the Next.js visualizer.
+

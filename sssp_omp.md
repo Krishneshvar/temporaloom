@@ -86,3 +86,19 @@ extremely deep paths.
 | `-s <n>`   | Source node (default: 0) |
 | `-t <n>`   | Target node for path reconstruction (optional) |
 | `-p <n>`   | Number of threads |
+
+---
+
+## Worker Telemetry
+
+```c
+#pragma omp parallel
+{
+    fprintf(stderr, "[WORKER %d] status SSSP processing iteration %d\n", omp_get_thread_num() + 1, level);
+    fflush(stderr);
+    // ... loop ...
+}
+```
+
+Like the BFS implementation, SSSP emits real-time telemetry from every thread. This feeds the "Active Processing Units" dashboard in the UI, enabling live monitoring of how the shortest-path frontier is being distributed across the CPU hardware.
+

@@ -45,15 +45,21 @@ int main(int argc, char *argv[]) {
     while (frontier_size > 0) {
         int next_frontier_size = 0;
 
-        #pragma omp parallel for schedule(dynamic, 256)
-        for (int i = 0; i < frontier_size; i++) {
-            int v = frontier[i];
-            for (int e = 0; e < g->nodes[v].out_degree; e++) {
-                int nb = g->nodes[v].edges[e];
-                if (__sync_bool_compare_and_swap(&dist[nb], INF, level + 1)) {
-                    parent[nb] = v;
-                    int pos = __sync_fetch_and_add(&next_frontier_size, 1);
-                    next_frontier[pos] = nb;
+        #pragma omp parallel
+        {
+            fprintf(stderr, "[WORKER %d] status SSSP processing iteration %d\n", omp_get_thread_num() + 1, level);
+            fflush(stderr);
+
+            #pragma omp for schedule(dynamic, 256)
+            for (int i = 0; i < frontier_size; i++) {
+                int v = frontier[i];
+                for (int e = 0; e < g->nodes[v].out_degree; e++) {
+                    int nb = g->nodes[v].edges[e];
+                    if (__sync_bool_compare_and_swap(&dist[nb], INF, level + 1)) {
+                        parent[nb] = v;
+                        int pos = __sync_fetch_and_add(&next_frontier_size, 1);
+                        next_frontier[pos] = nb;
+                    }
                 }
             }
         }

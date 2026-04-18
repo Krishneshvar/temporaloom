@@ -164,6 +164,9 @@ int main(int argc, char *argv[]) {
         cudaMemcpy(d_dangling_sum, &h_zero, sizeof(double), cudaMemcpyHostToDevice);
         cudaMemcpy(d_diff_sum, &h_zero, sizeof(double), cudaMemcpyHostToDevice);
 
+        fprintf(stderr, "[WORKER 1] status GPU processing iteration %d\n", iter);
+        fflush(stderr);
+
         // Distribute
         distribute_pr_kernel<<<gridSize, blockSize>>>(n, d_row_ptr, d_col_adj, d_ranks, d_new_ranks, d_dangling_sum, damping);
         cudaDeviceSynchronize();

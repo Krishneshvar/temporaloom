@@ -49,6 +49,9 @@ int main(int argc, char *argv[]) {
     while (iter < config.max_iter) {
         if (export_iter) export_iteration(iter, n, ranks);
 
+        fprintf(stderr, "[WORKER 1] status processing iteration %d\n", iter);
+        fflush(stderr);
+
         double local_dangling_sum = 0;
         compute_local_contributions(g, 0, n, ranks, new_ranks, &local_dangling_sum, config);
         double diff = apply_global_updates(ranks, new_ranks, n, local_dangling_sum, config);

@@ -51,14 +51,20 @@ int main(int argc, char *argv[]) {
     while (frontier_size > 0) {
         int next_frontier_size = 0;
 
-        #pragma omp parallel for schedule(dynamic, 256)
-        for (int i = 0; i < frontier_size; i++) {
-            int curr = frontier[i];
-            for (int e = 0; e < g->nodes[curr].out_degree; e++) {
-                int nb = g->nodes[curr].edges[e];
-                if (__sync_bool_compare_and_swap(&distance[nb], INF, level + 1)) {
-                    int pos = __sync_fetch_and_add(&next_frontier_size, 1);
-                    next_frontier[pos] = nb;
+        #pragma omp parallel
+        {
+            fprintf(stderr, "[WORKER %d] status processing level %d\n", omp_get_thread_num() + 1, level);
+            fflush(stderr);
+
+            #pragma omp for schedule(dynamic, 256)
+            for (int i = 0; i < frontier_size; i++) {
+                int curr = frontier[i];
+                for (int e = 0; e < g->nodes[curr].out_degree; e++) {
+                    int nb = g->nodes[curr].edges[e];
+                    if (__sync_bool_compare_and_swap(&distance[nb], INF, level + 1)) {
+                        int pos = __sync_fetch_and_add(&next_frontier_size, 1);
+                        next_frontier[pos] = nb;
+                    }
                 }
             }
         }

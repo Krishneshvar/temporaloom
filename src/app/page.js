@@ -20,6 +20,7 @@ import RunHistory     from '@/components/RunHistory';
 import ScrapeHistory  from '@/components/ScrapeHistory';
 import ComparisonDashboard from '@/components/ComparisonDashboard';
 import Link           from 'next/link';
+import RunWorkerStats from '@/components/RunWorkerStats';
 
 export default function Home() {
   return (
@@ -66,6 +67,7 @@ function HomeContent() {
 
   // Scraper
   const [scrapeEvents, setScrapeEvents]   = useState([]);
+  const [runEvents, setRunEvents]     = useState([]);
   const [isScraping, setIsScraping]       = useState(false);
   const readerRef = useRef(null);
 
@@ -132,6 +134,7 @@ function HomeContent() {
     setRunResult(null);
     setIsPlaying(false);
     setLiveIterCount(0);
+    setRunEvents([]);
     setComparisons({});
     compReadersRef.current.forEach(r => r.cancel());
     compReadersRef.current = [];
@@ -228,6 +231,13 @@ function HomeContent() {
                 setLiveIterCount(prev => Math.max(prev, n + 1));
                 setIteration(n);
                 setIterationData(ev.data);
+              }
+              if (ev.type === 'worker') {
+                setRunEvents(prev => {
+                  const now = [...prev, ev];
+                  if (now.length > 300) return now.slice(100);
+                  return now;
+                });
               }
               if (ev.type === 'complete') {
                 setRunResult(ev.data);
@@ -598,6 +608,20 @@ function HomeContent() {
                 {Object.keys(comparisons).length > 0 && (
                   <ComparisonDashboard comparisons={comparisons} />
                 )}
+
+                {/* Engine Worker Visualization */}
+                <AnimatePresence>
+                  {loading && runEvents.length > 0 && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0, marginBottom: 0 }}
+                      animate={{ height: 'auto', opacity: 1, marginBottom: 24 }}
+                      exit={{ height: 0, opacity: 0, marginBottom: 0 }}
+                      className="overflow-hidden"
+                    >
+                      <RunWorkerStats events={runEvents} loading={loading} />
+                    </motion.div>
+                  )}
+                </AnimatePresence>
 
                 {/* Graph viewer */}
                 <div className="relative bg-[var(--surface)] rounded-2xl border border-[var(--border)] shadow-2xl overflow-visible min-h-[500px]">

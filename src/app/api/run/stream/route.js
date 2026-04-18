@@ -32,14 +32,32 @@ export async function POST(request) {
       const close = () => { try { controller.close(); } catch (_) {} };
 
       child = spawn(cmd, args, { cwd: engineDir });
-      let stdout = '', settled = false;
+      let stdout = '', stderrBuf = '', settled = false;
 
       killTimer = setTimeout(() => {
-        if (!settled) { settled = true; try { child.kill('SIGKILL'); } catch (_) {} send({ type: 'error', message: 'Engine timed out after 120s' }); close(); }
+        if (!settled) {
+          settled = true;
+          try { child.kill('SIGKILL'); } catch (_) {}
+          send({ type: 'error', message: 'Engine timed out after 120s' });
+          close();
+        }
       }, ENGINE_TIMEOUT_MS);
 
       child.stdout.on('data', d => { stdout += d.toString(); });
-      child.stderr.on('data', () => {}); // suppress
+      child.stderr.on('data', d => {
+        stderrBuf += d.toString();
+        const lines = stderrBuf.split('\n');
+        stderrBuf = lines.pop(); // keep last chunk
+
+        for (const line of lines) {
+          if (line.includes('[WORKER')) {
+            const match = line.match(/\[WORKER (\d+)\] (.*)/);
+            if (match) {
+              send({ type: 'worker', workerId: parseInt(match[1], 10), message: match[2].trim() });
+            }
+          }
+        }
+      });
 
       // Poll for new iteration files every 120ms and stream them
       let lastSent = -1;

@@ -58,11 +58,19 @@ int main(int argc, char *argv[]) {
     int start_node = rank * nodes_per_proc;
     int end_node = (rank == size - 1) ? n : start_node + nodes_per_proc;
 
+    // Report partition range for visualization
+    fprintf(stderr, "[WORKER %d] assigned nodes %d to %d\n", rank + 1, start_node, end_node);
+    fflush(stderr);
+
     double start_time = MPI_Wtime();
 
     int iter = 0;
     while (iter < config.max_iter) {
         if (export_iter && rank == 0) export_iteration(iter, n, ranks);
+
+        // Pulse activity for UI
+        fprintf(stderr, "[WORKER %d] status processing iteration %d\n", rank + 1, iter);
+        fflush(stderr);
 
         double local_dangling_sum = 0;
         double total_dangling_sum = 0;

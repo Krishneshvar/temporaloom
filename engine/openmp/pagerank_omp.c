@@ -65,18 +65,24 @@ int main(int argc, char *argv[]) {
             new_ranks[i] = 0.0;
         }
 
-        #pragma omp parallel for reduction(+:local_dangling_sum) schedule(dynamic, 64)
-        for (int i = 0; i < n; i++) {
-            int out_degree = g->nodes[i].out_degree;
-            if (out_degree > 0) {
-                double contribution = config.damping * (ranks[i] / out_degree);
-                for (int k = 0; k < out_degree; k++) {
-                    int dest = g->nodes[i].edges[k];
-                    #pragma omp atomic
-                    new_ranks[dest] += contribution;
+        #pragma omp parallel
+        {
+            fprintf(stderr, "[WORKER %d] status processing iteration %d\n", omp_get_thread_num() + 1, iter);
+            fflush(stderr);
+
+            #pragma omp for reduction(+:local_dangling_sum) schedule(dynamic, 64)
+            for (int i = 0; i < n; i++) {
+                int out_degree = g->nodes[i].out_degree;
+                if (out_degree > 0) {
+                    double contribution = config.damping * (ranks[i] / out_degree);
+                    for (int k = 0; k < out_degree; k++) {
+                        int dest = g->nodes[i].edges[k];
+                        #pragma omp atomic
+                        new_ranks[dest] += contribution;
+                    }
+                } else {
+                    local_dangling_sum += ranks[i];
                 }
-            } else {
-                local_dangling_sum += ranks[i];
             }
         }
 
